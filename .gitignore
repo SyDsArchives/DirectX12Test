@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+
+#‚¢‚ç‚È‚¢‚â‚Â
+*.sdf
+*.suo
+ipch/
+*.ipch
+Debug/
+*.Debug
+Release/
+*.Release
+*.vcxproj.user
