@@ -1,9 +1,10 @@
 #include <iostream>
 #include <Windows.h>
 #include "App.h"
+#include "Geometory.h"
 
-const int WindowWidth = 960;
-const int WindowHeight = 540;
+#include "DirectX12.h"
+
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
@@ -66,6 +67,10 @@ void App::Initialize()
 
 void App::Run()
 {
+	DirectX12& dx12 = DirectX12::Dx12Instance();
+
+	dx12.Dx12();
+
 	ShowWindow(hwnd, SW_SHOW);
 	while (true)
 	{
