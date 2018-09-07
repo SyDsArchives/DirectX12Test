@@ -19,6 +19,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 App::App()
 {
+	dx12.reset();
 }
 
 
@@ -72,9 +73,7 @@ void App::Initialize()
 
 void App::Run()
 {
-	DirectX12& dx12 = DirectX12::Dx12Instance();
-
-	dx12.Dx12(hwnd);
+	dx12->Dx12(hwnd);
 
 	ShowWindow(hwnd, SW_SHOW);
 	while (true)
