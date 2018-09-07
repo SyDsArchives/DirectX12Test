@@ -9,6 +9,8 @@ public:
 	App();
 	~App();
 
+	HWND GetHWND();
+
 	void Initialize();
 	void Run();
 	void Terminate();

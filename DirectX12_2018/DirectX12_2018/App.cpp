@@ -26,6 +26,11 @@ App::~App()
 {
 }
 
+HWND App::GetHWND()
+{
+	return hwnd;
+}
+
 void App::Initialize()
 {
 	w.cbSize = sizeof(WNDCLASSEX);
@@ -69,7 +74,7 @@ void App::Run()
 {
 	DirectX12& dx12 = DirectX12::Dx12Instance();
 
-	dx12.Dx12();
+	dx12.Dx12(hwnd);
 
 	ShowWindow(hwnd, SW_SHOW);
 	while (true)

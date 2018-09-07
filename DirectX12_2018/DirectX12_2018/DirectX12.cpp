@@ -9,6 +9,8 @@
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 
+const int screenBufferNum = 2;//画面バッファの数
+
 DirectX12::DirectX12()
 {
 }
@@ -18,7 +20,7 @@ DirectX12::~DirectX12()
 {
 }
 
-void DirectX12::Dx12()
+void DirectX12::Dx12(HWND hwnd)
 {
 	//デバイスの作成
 	ID3D12Device* dev = nullptr;
@@ -60,7 +62,6 @@ void DirectX12::Dx12()
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	result = dev->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&cmdQueue));
 
-
 	//スワップチェインの作成
 	IDXGIFactory2* factory = nullptr;
 	result = CreateDXGIFactory1(IID_PPV_ARGS(&factory));
@@ -75,14 +76,38 @@ void DirectX12::Dx12()
 	swapChainDesc.SampleDesc.Count = 1;//マルチサンプルの数
 	swapChainDesc.SampleDesc.Quality = 0;//マルチサンプルの品質
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-	swapChainDesc.BufferCount = 2;//バックバッファの数(2)
+	swapChainDesc.BufferCount = screenBufferNum;//バックバッファの数(2)
 	swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
 	swapChainDesc.Flags = 0;
 
-	//esult = factory->CreateSwapChainForHwnd(cmdQueue,hwnd, &swapChainDesc,nullptr,nullptr, (IDXGISwapChain1**)(&swapChain));
+	result = factory->CreateSwapChainForHwnd(cmdQueue,hwnd, &swapChainDesc,nullptr,nullptr, (IDXGISwapChain1**)(&swapChain));
 
+	//RTV用のデスクリプターヒープの作成
+	ID3D12DescriptorHeap* descriptorHeapRTV = nullptr;
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descHeapDesc.NumDescriptors = screenBufferNum;
+	descHeapDesc.NodeMask = 0;
+	result = dev->CreateDescriptorHeap(&descHeapDesc,IID_PPV_ARGS(&descriptorHeapRTV));
+
+	//レンダーターゲットの作成
+	ID3D12Resource* renderTarget[screenBufferNum];
+	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV[screenBufferNum];
+	UINT DescriptorHandleIncrementSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	for (UINT i = 0; i < screenBufferNum; ++i)
+	{
+		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
+
+		descriptorHandleRTV[i] = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+		descriptorHandleRTV[i].ptr += DescriptorHandleIncrementSize * i;
+		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV[i]);
+	}
+
+	ID3D12Fence* fence = nullptr;
 	int a = 0;
 }
 
