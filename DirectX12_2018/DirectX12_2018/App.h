@@ -1,6 +1,6 @@
 #pragma once
 #include <memory>
-class DirectX12;
+class MyDirectX12;
 class App
 {
 private:
@@ -8,7 +8,7 @@ private:
 	HWND hwnd = {};
 	MSG msg;
 
-	std::shared_ptr<DirectX12> dx12;
+	std::shared_ptr<MyDirectX12> dx12;
 public:
 	App();
 	~App();

@@ -117,13 +117,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
-    <ClCompile Include="DirectX12.cpp" />
+    <ClCompile Include="MyDirectX12.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="d3dx12.h" />
-    <ClInclude Include="DirectX12.h" />
+    <ClInclude Include="MyDirectX12.h" />
     <ClInclude Include="Geometory.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

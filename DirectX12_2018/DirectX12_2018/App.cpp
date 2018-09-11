@@ -1,9 +1,9 @@
 #include <iostream>
+
 #include <Windows.h>
 #include "App.h"
 #include "Geometory.h"
-
-#include "DirectX12.h"
+#include "MyDirectX12.h"
 
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
@@ -19,7 +19,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 App::App()
 {
-	dx12.reset();
+	
+	//dx12.reset();
 }
 
 
@@ -73,11 +74,13 @@ void App::Initialize()
 
 void App::Run()
 {
-	dx12->Dx12(hwnd);
+	dx12 = std::make_shared<MyDirectX12>(hwnd);
+	
 
 	ShowWindow(hwnd, SW_SHOW);
 	while (true)
 	{
+		dx12->Dx12();
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
@@ -88,6 +91,7 @@ void App::Run()
 			break;
 		}
 	}
+	dx12->GetDevice()->Release();
 }
 
 void App::Terminate()
