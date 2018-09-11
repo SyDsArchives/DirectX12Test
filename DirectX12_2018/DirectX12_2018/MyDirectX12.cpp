@@ -53,21 +53,25 @@ void MyDirectX12::Dx12()
 
 ID3D12Device * MyDirectX12::GetDevice()
 {
+	//デバイスの取得
 	return dev;
 }
 
 ID3D12CommandAllocator * MyDirectX12::GetCommandAllocator()
 {
+	//アロケータの取得
 	return cmdAllocator;
 }
 
 ID3D12CommandQueue * MyDirectX12::GetCommandQueue()
 {	
-	return nullptr;
+	//キューの取得
+	return cmdQueue;
 }
 
 ID3D12GraphicsCommandList3 * MyDirectX12::GetCommandList()
 {
+	//リストの取得
 	return cmdList;
 }
 

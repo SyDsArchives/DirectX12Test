@@ -19,8 +19,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 App::App()
 {
-	
-	//dx12.reset();
 }
 
 
