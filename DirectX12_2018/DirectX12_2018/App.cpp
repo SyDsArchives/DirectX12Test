@@ -74,11 +74,12 @@ void App::Run()
 {
 	dx12 = std::make_shared<MyDirectX12>(hwnd);
 	
+	dx12->OutLoopDx12();
 
 	ShowWindow(hwnd, SW_SHOW);
 	while (true)
 	{
-		dx12->Dx12();
+		dx12->InLoopDx12();
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);

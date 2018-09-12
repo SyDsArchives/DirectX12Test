@@ -5,12 +5,20 @@
 #include <dxgi1_6.h>
 #include <d3d12.h>
 #include <d3dcompiler.h>
+#include <DirectXMath.h>
 
 #include <vector>
+
+struct Vertex{
+	DirectX::XMFLOAT3 pos;//座標
+};
 
 class MyDirectX12
 {
 private:
+	unsigned int bbindex;
+	int descriptorSizeRTV;
+
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
 
@@ -36,17 +44,26 @@ private:
 
 	//ルートシグネチャ
 	ID3D12RootSignature* rootSignature;
-	ID3DBlob* signature;
-	ID3DBlob* error;
+
+	//パイプラインステート
+	ID3D12PipelineState* piplineState;
+
+	//
+	D3D12_VIEWPORT viewport;
+	D3D12_RECT scissorRect;
 
 	//フェンス
 	ID3D12Fence* fence;
+	UINT64 fenceValue;
+	void ExecuteCommand();
+	void WaitWithFence();
 	
 public:
 	MyDirectX12(HWND _hwnd);
 	~MyDirectX12();
 	
-	void Dx12();
+	void OutLoopDx12();
+	void InLoopDx12();
 
 	//ファクトリーの作成
 	void CreateDXGIFactory();
@@ -74,6 +91,9 @@ public:
 
 	//ルートシグネチャ
 	void CreateRootSignature();
+
+	//フェンス
+	void CreateFence();
 
 };
 
