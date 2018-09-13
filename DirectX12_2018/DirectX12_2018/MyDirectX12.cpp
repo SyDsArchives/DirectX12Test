@@ -51,6 +51,8 @@ void MyDirectX12::OutLoopDx12()
 			nullptr,//nullptrで良い
 			IID_PPV_ARGS(&vertexBuffer));
 
+	auto a = CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices));
+	auto b = sizeof(vertices);
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
@@ -59,14 +61,27 @@ void MyDirectX12::OutLoopDx12()
 	result = vertexBuffer->Map(0, &range, (void**)&pdata);
 	//std::copy(vertices[0], vertices[2], pdata);
 	memcpy(pdata, vertices, sizeof(vertices));
+	
 	//std::copy(std::begin(vertices), std::end(vertices), &vb);
 	//std::copy(std::begin(vertices), std::end(vertices), &pdata);
 	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = sizeof(Vertex);
+	vbView.StrideInBytes = sizeof(Vertex) * _countof(vertices);
 	vbView.SizeInBytes = sizeof(vertices);
+
+
+	//cmdList->ResourceBarrier(1,
+	//	&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
+	//		D3D12_RESOURCE_STATE_RENDER_TARGET,
+	//		D3D12_RESOURCE_STATE_PRESENT));
+
+	//cmdList->Close();//リストのクローズ
+
+	//ExecuteCommand();
+
+	//WaitWithFence();
 
 	//シェーダー
 	ID3DBlob* vertexShader = nullptr;
@@ -102,7 +117,7 @@ void MyDirectX12::OutLoopDx12()
 	//ルートシグネチャと頂点レイアウト
 	gpsDesc.pRootSignature = rootSignature;
 	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	gpsDesc.InputLayout.NumElements = _countof(inputLayouts);
+	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
@@ -114,7 +129,8 @@ void MyDirectX12::OutLoopDx12()
 	//深度ステンシル
 	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
 	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
-	//gpsDesc.DSVFormat;//あとで
+	//gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
+	//gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;//小さいほうを残す
 	//その他
 	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpsDesc.NodeMask = 0;
@@ -147,7 +163,6 @@ void MyDirectX12::InLoopDx12()
 	HRESULT result = S_OK;
 	float clearColor[4] = { 255, 0, 0, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-	auto heapStartGPU = descriptorHeapRTV->GetGPUDescriptorHandleForHeapStart();
 
 	result = cmdAllocator->Reset();//アロケータリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);//リストリセット
@@ -181,7 +196,7 @@ void MyDirectX12::InLoopDx12()
 
 	//三角形描画
 	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
-	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	cmdList->DrawInstanced(3, 1, 0, 0);
 
 	cmdList->ResourceBarrier(1, 
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -189,9 +204,7 @@ void MyDirectX12::InLoopDx12()
 		D3D12_RESOURCE_STATE_PRESENT));
 
 	cmdList->Close();//リストのクローズ
-
 	
-
 	for (auto& cmd : commandlist)
 	{
 		cmd();
@@ -199,7 +212,7 @@ void MyDirectX12::InLoopDx12()
 
 	ExecuteCommand();
 
-	swapChain->Present(0, 0);
+	swapChain->Present(1, 0);
 	bbindex = swapChain->GetCurrentBackBufferIndex();
 
 	WaitWithFence();
