@@ -8,6 +8,7 @@
 #include <DirectXMath.h>
 
 #include <vector>
+#include <functional>
 
 struct Vertex{
 	DirectX::XMFLOAT3 pos;//座標
@@ -42,14 +43,19 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
 	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
 
+	//VertexBufferView
+	D3D12_VERTEX_BUFFER_VIEW vbView = {};
+
 	//ルートシグネチャ
 	ID3D12RootSignature* rootSignature;
 
 	//パイプラインステート
 	ID3D12PipelineState* piplineState;
 
-	//
+	//ビューポート
 	D3D12_VIEWPORT viewport;
+
+	//シザーレクト
 	D3D12_RECT scissorRect;
 
 	//フェンス

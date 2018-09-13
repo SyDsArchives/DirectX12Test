@@ -8,6 +8,10 @@
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"d3dcompiler.lib")
 
+Vertex vertices[] = { { { 0.0f,0.0f,0.0f } },
+{ { 1.0f,0.0f,0.0f } },
+{ { 0.0f,-1.0f,0.0f } } };
+
 const int screenBufferNum = 2;//画面バッファの数
 
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
@@ -34,12 +38,10 @@ MyDirectX12::~MyDirectX12()
 void MyDirectX12::OutLoopDx12()
 {
 	//メインループ外に投げ込む場所
-	HRESULT result = S_OK;
-	//三角形の座標、リソース管理
-	Vertex vertices[] = { { { 0.0f,0.0f,0.0f } },
-						{ { 1.0f,0.0f,0.0f } },
-						{ { 0.0f,-1.0f,0.0f } } };
 
+	HRESULT result = S_OK;
+
+	//バーテックスバッファ
 	ID3D12Resource* vertexBuffer = nullptr;
 	result = dev->CreateCommittedResource(
 			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
@@ -52,15 +54,16 @@ void MyDirectX12::OutLoopDx12()
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
-
-	char* pdata;
-	vertexBuffer->Map(0, &range, (void**)&pdata);
+	Vertex* vb = nullptr;
+	char* pdata = nullptr;
+	result = vertexBuffer->Map(0, &range, (void**)&pdata);
 	//std::copy(vertices[0], vertices[2], pdata);
 	memcpy(pdata, vertices, sizeof(vertices));
+	//std::copy(std::begin(vertices), std::end(vertices), &vb);
+	//std::copy(std::begin(vertices), std::end(vertices), &pdata);
 	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー
-	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vbView.StrideInBytes = sizeof(Vertex);
 	vbView.SizeInBytes = sizeof(vertices);
@@ -127,16 +130,14 @@ void MyDirectX12::OutLoopDx12()
 	viewport.TopLeftY = 0;
 	viewport.Width = WindowWidth;
 	viewport.Height = WindowHeight;
-	viewport.MinDepth = 0.f;
-	viewport.MaxDepth = 1.f;
+	viewport.MinDepth = 0.f;//近い
+	viewport.MaxDepth = 1.f;//遠い
 
 	//シザーレクト
 	scissorRect.left = 0;
 	scissorRect.right = WindowWidth;
 	scissorRect.top = 0;
 	scissorRect.bottom = WindowHeight;
-	
-	int a = 0;
 }
 
 void MyDirectX12::InLoopDx12()
@@ -144,21 +145,57 @@ void MyDirectX12::InLoopDx12()
 	//メインループ内に投げ込む場所
 
 	HRESULT result = S_OK;
-	float clearColor[4] = { 255, 255, 255, 255 };
+	float clearColor[4] = { 255, 0, 0, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	auto heapStartGPU = descriptorHeapRTV->GetGPUDescriptorHandleForHeapStart();
 
-	cmdAllocator->Reset();//アロケータリセット
-	cmdList->Reset(cmdAllocator, piplineState);//リストリセット
+	result = cmdAllocator->Reset();//アロケータリセット
+	result = cmdList->Reset(cmdAllocator, piplineState);//リストリセット
+
+	std::vector<std::function<void(void)>> commandlist;
+	commandlist.push_back([]() {std::cout << "SetRTV" << std::endl; });
+	std::cout << "1" << std::endl;
+	commandlist.push_back([]() {std::cout << "ClearRTV" << std::endl; });
+	std::cout << "2" << std::endl;
+	commandlist.push_back([]() {std::cout << "Close" << std::endl; });
+	std::cout << "3" << std::endl;
 	//基本この下以降に追加する
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtv(heapStartCPU, bbindex, descriptorSizeRTV);
 	//CD3DX12_GPU_DESCRIPTOR_HANDLE rtv(heapStartGPU, bbindex, descriptorSizeRTV);
+	
+	//レンダーターゲットのセット
 	cmdList->OMSetRenderTargets(1, &heapStartCPU, false, nullptr);//レンダーターゲット設定
 	cmdList->ClearRenderTargetView(descriptorHandle, clearColor, 0, nullptr);//クリア
 
-	//cmdList->IASetVertexBuffers(0, 1, &vbView);
+	//ルートシグネチャのセット
+	cmdList->SetGraphicsRootSignature(rootSignature);
+
+	//ビューポートのセット
+	cmdList->RSSetViewports(1, &viewport);
+
+	//シザーレクトのセット
+	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	//頂点バッファのセット
+	cmdList->IASetVertexBuffers(0, 1, &vbView);
+
+	//三角形描画
+	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+
+	cmdList->ResourceBarrier(1, 
+		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
+		D3D12_RESOURCE_STATE_RENDER_TARGET, 
+		D3D12_RESOURCE_STATE_PRESENT));
 
 	cmdList->Close();//リストのクローズ
+
+	
+
+	for (auto& cmd : commandlist)
+	{
+		cmd();
+	}
 
 	ExecuteCommand();
 
@@ -179,7 +216,7 @@ void MyDirectX12::WaitWithFence()
 	cmdQueue->Signal(fence, ++fenceValue);
 	while (fence->GetCompletedValue() != fenceValue)
 	{
-		std::cout << "ふぇんすだよ" << std::endl;
+		//std::cout << "ふぇんすだよ" << std::endl;
 	}
 }
 
@@ -247,7 +284,8 @@ void MyDirectX12::CreateCommandAllocator()
 
 	HRESULT result = S_OK;
 
-	result = dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocator));
+	result = dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, 
+		IID_PPV_ARGS(&cmdAllocator));
 }
 
 void MyDirectX12::CreateCommandQueue()
