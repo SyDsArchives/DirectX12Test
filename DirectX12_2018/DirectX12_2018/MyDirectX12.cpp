@@ -8,9 +8,19 @@
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"d3dcompiler.lib")
 
-Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
-{ { 0.4f,-0.5f,0.0f } },
-{ { -0.4f,-0.5f,0.0f } } };
+//三角
+//Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
+//					{ { 0.4f,-0.5f,0.0f } },
+//					{ { -0.4f,-0.5f,0.0f } } };
+
+//四角
+Vertex vertices[] = {
+	DirectX::XMFLOAT3(-0.5,-0.9,0),
+	DirectX::XMFLOAT3(-0.5,0.9,0),
+	DirectX::XMFLOAT3(0.5,-0.9,0),
+	DirectX::XMFLOAT3(0.5,0.9,0),
+};
+std::vector<unsigned short> indices = { 0,2,1,2,3,1 };//インデックス
 
 const int screenBufferNum = 2;//画面バッファの数
 
@@ -53,13 +63,11 @@ void MyDirectX12::OutLoopDx12()
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
-	Vertex* vb = nullptr;
+	/*Vertex* vb = nullptr;*/
 	char* pdata = nullptr;
+
 	result = vertexBuffer->Map(0, &range, (void**)&pdata);
-	//std::copy(vertices[0], vertices[2], pdata);
 	memcpy(pdata, vertices, sizeof(vertices));
-	
-	//std::copy(std::begin(vertices), std::end(vertices), &vb);
 	//std::copy(std::begin(vertices), std::end(vertices), &pdata);
 	vertexBuffer->Unmap(0, nullptr);
 
@@ -68,17 +76,27 @@ void MyDirectX12::OutLoopDx12()
 	vbView.StrideInBytes = sizeof(Vertex)/* * _countof(vertices)*/;
 	vbView.SizeInBytes = sizeof(vertices);
 
+	//インデックスバッファ
+	ID3D12Resource* indexBuffer = nullptr;
+	result = dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+		D3D12_HEAP_FLAG_NONE,//指定なし
+		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),//サイズ
+		D3D12_RESOURCE_STATE_GENERIC_READ,//???
+		nullptr,//nullptrで良い
+		IID_PPV_ARGS(&indexBuffer));
 
-	//cmdList->ResourceBarrier(1,
-	//	&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
-	//		D3D12_RESOURCE_STATE_RENDER_TARGET,
-	//		D3D12_RESOURCE_STATE_PRESENT));
+	auto a = CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0]));
 
-	//cmdList->Close();//リストのクローズ
+	unsigned short* idxdata = nullptr;
+	D3D12_RANGE indexRange = { 0,0 };
+	result = indexBuffer->Map(0, &indexRange, (void**)&idxdata);
+	std::copy(indices.begin(), indices.end(), idxdata);
+	indexBuffer->Unmap(0, nullptr);
 
-	//ExecuteCommand();
-
-	//WaitWithFence();
+	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
+	ibView.SizeInBytes = indices.size() * sizeof(indices[0]);
 
 	//シェーダー
 	ID3DBlob* vertexShader = nullptr;
@@ -191,16 +209,23 @@ void MyDirectX12::InLoopDx12()
 
 	//シザーレクトのセット
 	cmdList->RSSetScissorRects(1, &scissorRect);
-
-	//形
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	
+	//インデックスバッファのセット
+	cmdList->IASetIndexBuffer(&ibView);
 
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
 
+	//形情報のセット
+	//三角
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	//四角
+	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
 	//三角形描画
-	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
-	cmdList->DrawInstanced(3, 1, 0, 0);
+	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);//頂点情報のみでの描画
+
+	cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
 	cmdList->ResourceBarrier(1, 
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],

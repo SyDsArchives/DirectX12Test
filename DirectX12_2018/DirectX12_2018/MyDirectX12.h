@@ -49,6 +49,9 @@ private:
 	//VertexBufferView
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 
+	//indexBuffer
+	D3D12_INDEX_BUFFER_VIEW ibView = {};
+
 	//ルートシグネチャ
 	ID3D12RootSignature* rootSignature;
 
