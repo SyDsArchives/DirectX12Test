@@ -1,7 +1,15 @@
+struct Output
+{
+	float4 svpos : SV_POSITION;
+	float4 color : COLOR;
+};
+
 
 //頂点シェーダ
-float4 vs( float4 pos : POSITION ) : SV_POSITION
+float4 vs( float4 pos : POSITION ) : SV_POSITION//三角形が出次第SVPOSを消す
 {
+	/*Output output;
+	output.svpos = output.color = pos;*/
 	return pos;
 }
 

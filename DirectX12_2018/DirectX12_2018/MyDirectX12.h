@@ -38,6 +38,9 @@ private:
 	//スワップチェイン
 	IDXGISwapChain4* swapChain;
 
+	//デスクリプターヒープ
+	ID3D12DescriptorHeap* descriptorHeap = nullptr;
+
 	//レンダーターゲット
 	std::vector<ID3D12Resource*> renderTarget;
 	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;

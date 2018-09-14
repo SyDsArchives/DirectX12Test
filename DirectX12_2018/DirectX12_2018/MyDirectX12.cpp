@@ -8,9 +8,9 @@
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"d3dcompiler.lib")
 
-Vertex vertices[] = { { { 0.0f,0.0f,0.0f } },
-{ { 1.0f,0.0f,0.0f } },
-{ { 0.0f,-1.0f,0.0f } } };
+Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
+{ { 0.4f,-0.5f,0.0f } },
+{ { -0.4f,-0.5f,0.0f } } };
 
 const int screenBufferNum = 2;//画面バッファの数
 
@@ -51,9 +51,6 @@ void MyDirectX12::OutLoopDx12()
 			nullptr,//nullptrで良い
 			IID_PPV_ARGS(&vertexBuffer));
 
-	auto a = CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices));
-	auto b = sizeof(vertices);
-
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
 	Vertex* vb = nullptr;
@@ -68,7 +65,7 @@ void MyDirectX12::OutLoopDx12()
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = sizeof(Vertex) * _countof(vertices);
+	vbView.StrideInBytes = sizeof(Vertex)/* * _countof(vertices)*/;
 	vbView.SizeInBytes = sizeof(vertices);
 
 
@@ -117,7 +114,8 @@ void MyDirectX12::OutLoopDx12()
 	//ルートシグネチャと頂点レイアウト
 	gpsDesc.pRootSignature = rootSignature;
 	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	//gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	gpsDesc.InputLayout.NumElements = _countof(inputLayouts)/* / sizeof(D3D12_INPUT_ELEMENT_DESC)*/;
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
@@ -130,7 +128,7 @@ void MyDirectX12::OutLoopDx12()
 	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
 	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
 	//gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
-	//gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;//小さいほうを残す
+	//gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
 	//その他
 	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpsDesc.NodeMask = 0;
@@ -161,8 +159,9 @@ void MyDirectX12::InLoopDx12()
 	//メインループ内に投げ込む場所
 
 	HRESULT result = S_OK;
-	float clearColor[4] = { 255, 0, 0, 255 };
+	float clearColor[4] = { 0, 0, 0, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
 
 	result = cmdAllocator->Reset();//アロケータリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);//リストリセット
@@ -175,7 +174,6 @@ void MyDirectX12::InLoopDx12()
 	commandlist.push_back([]() {std::cout << "Close" << std::endl; });
 	std::cout << "3" << std::endl;
 	//基本この下以降に追加する
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtv(heapStartCPU, bbindex, descriptorSizeRTV);
 	//CD3DX12_GPU_DESCRIPTOR_HANDLE rtv(heapStartGPU, bbindex, descriptorSizeRTV);
 	
 	//レンダーターゲットのセット
@@ -185,11 +183,17 @@ void MyDirectX12::InLoopDx12()
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
 
+	//パイプラインのセット
+	cmdList->SetPipelineState(piplineState);
+
 	//ビューポートのセット
 	cmdList->RSSetViewports(1, &viewport);
 
 	//シザーレクトのセット
 	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	//形
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
@@ -229,7 +233,7 @@ void MyDirectX12::WaitWithFence()
 	cmdQueue->Signal(fence, ++fenceValue);
 	while (fence->GetCompletedValue() != fenceValue)
 	{
-		//std::cout << "ふぇんすだよ" << std::endl;
+		std::cout << "ふぇんすだよ" << std::endl;
 	}
 }
 
@@ -330,7 +334,7 @@ void MyDirectX12::CreateDescriptorHeap()
 	//RTV用のデスクリプターヒープの作成
 
 	HRESULT result = S_OK;
-	
+
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
 	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
@@ -379,6 +383,7 @@ void MyDirectX12::CreateRenderTarget()
 		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
 		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
 		descriptorHandleRTV.Offset(descriptorSizeRTV);
+		//descriptorHandleRTV.ptr += descriptorSizeRTV;
 	}
 }
 
