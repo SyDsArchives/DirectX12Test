@@ -12,6 +12,7 @@
 
 struct Vertex{
 	DirectX::XMFLOAT3 pos;//座標
+	DirectX::XMFLOAT2 uv;
 };
 
 class MyDirectX12
@@ -69,6 +70,24 @@ private:
 	UINT64 fenceValue;
 	void ExecuteCommand();
 	void WaitWithFence();
+
+	//サンプラー
+	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
+
+	//ルートパラメーター
+	D3D12_ROOT_PARAMETER rootParam = {};
+
+	//テクスチャバッファ
+	ID3D12Resource* textureBuffer;
+
+	//テクスチャリソース
+	/*ID3D12DescriptorHeap* srvDescHeap;*/
+
+	//シェーダーリソースビュー
+	ID3D12DescriptorHeap* rtvDescHeap;//RTV(レンダーターゲット)デスクリプタヒープ
+	ID3D12DescriptorHeap* dsvDescHeap;//DSV(深度)デスクリプタヒープ
+	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
+
 	
 public:
 	MyDirectX12(HWND _hwnd);

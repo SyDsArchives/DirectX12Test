@@ -12,32 +12,23 @@
 //Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
 //					{ { 0.4f,-0.5f,0.0f } },
 //					{ { -0.4f,-0.5f,0.0f } } };
-//
-//Vertex vertices[] = { { { -0.4f,-0.5f,0.0f } },
-//					{ { -0.4f,0.5f,0.0f } },
-//					{ { 0.4f,-0.5f,0.0f } }, 
-//					{ { 0.4f,0.5f,0.0f } },};
 
 //四角
 Vertex vertices[] = {
-	DirectX::XMFLOAT3(-0.5f,-0.9f,0.f),
-	DirectX::XMFLOAT3(-0.5f,0.9f,0.f),
-	DirectX::XMFLOAT3(0.5f,-0.9f,0.f),
-	DirectX::XMFLOAT3(0.5f,0.9f,0.f),
+	DirectX::XMFLOAT3(-0.5f,-0.9f,0.f),DirectX::XMFLOAT2(0,0),
+	DirectX::XMFLOAT3(-0.5f,0.9f,0.f),DirectX::XMFLOAT2(0,1),
+	DirectX::XMFLOAT3(0.5f,-0.9f,0.f),DirectX::XMFLOAT2(1,0),
+	DirectX::XMFLOAT3(0.5f,0.9f,0.f),DirectX::XMFLOAT2(1,1),
 };
 
-//std::vector<unsigned short> indices = { 0,2,1,2,3,1 };//インデックス
-//std::vector<unsigned short> indices = { 1,0,3,0,2,3 };//インデックス
-std::vector<unsigned short> indices = { 0,1,2,0,3,2 };//インデックス(N)
+std::vector<unsigned short> indices = { 0,1,2,1,3,2 };//インデックス(N)
 //std::vector<unsigned short> indices = { 0,1,3,3,2,0 };//インデックス(Z)
-
-
 
 const int screenBufferNum = 2;//画面バッファの数
 
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
-fence(nullptr), fenceValue(0), piplineState(nullptr)
+fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr)
 {
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -47,7 +38,7 @@ fence(nullptr), fenceValue(0), piplineState(nullptr)
 	MyDirectX12::CreateDescriptorHeap();
 	MyDirectX12::CreateSwapChain();
 	MyDirectX12::CreateRenderTarget();
-	MyDirectX12::CreateRootSignature();
+	/*MyDirectX12::CreateRootSignature();*/
 	MyDirectX12::CreateFence();
 }
 
@@ -132,6 +123,7 @@ void MyDirectX12::OutLoopDx12()
 	//シェーダへ送る情報
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 		{ "POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+		{ "TEXCOORD",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 	};
 
 	//パイプラインステート
@@ -149,11 +141,13 @@ void MyDirectX12::OutLoopDx12()
 	//レンダーターゲット
 	gpsDesc.NumRenderTargets = 1;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;//一致しておく必要がある
-													   //深度ステンシル
+	//深度ステンシル
 	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
 	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
-	//gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
-	//gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;//DSV必須
+	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
+	
 	//その他
 	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	gpsDesc.NodeMask = 0;
@@ -177,6 +171,128 @@ void MyDirectX12::OutLoopDx12()
 	scissorRect.right = WindowWidth;
 	scissorRect.top = 0;
 	scissorRect.bottom = WindowHeight;
+
+	//テクスチャの読み込み
+	BITMAPFILEHEADER bmpFileHeader = {};
+	BITMAPINFOHEADER bmpInfoHeader = {};
+
+	FILE* tiles;
+	std::vector<char> data;
+	tiles = fopen("resource/img/tiles.bmp", "rb");
+	fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, tiles);
+	fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, tiles);
+	data.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
+	//反転読み込み防止のため一つずつ読み込む
+	for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
+	{
+		for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
+		{
+			unsigned int address = line * bmpInfoHeader.biWidth * 4;
+			data[address + count] = 0;
+			fread(&data[address + count + 1], sizeof(unsigned char), 3, tiles);
+		}
+	}
+	fclose(tiles);
+
+	//リソース関連？？
+	D3D12_HEAP_PROPERTIES heapprop = {};
+	heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
+	heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	heapprop.CreationNodeMask = 1;
+	heapprop.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC texResourceDesc = {};
+	texResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	texResourceDesc.Alignment = 0;
+	texResourceDesc.Width = bmpInfoHeader.biWidth;//画像の横幅
+	texResourceDesc.Height = bmpInfoHeader.biHeight;//画像の縦幅
+	texResourceDesc.DepthOrArraySize = 1;
+	texResourceDesc.MipLevels = 0;
+	texResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	texResourceDesc.SampleDesc.Count = 1;
+	texResourceDesc.SampleDesc.Quality = 0;
+	texResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	result = dev->CreateCommittedResource(&heapprop,
+		D3D12_HEAP_FLAG_NONE,
+		&texResourceDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&textureBuffer));
+
+	//テクスチャの書き込み
+	D3D12_RESOURCE_DESC resdesc = {};
+	resdesc = textureBuffer->GetDesc();
+	D3D12_BOX box = {};
+	box.left = 0;
+	box.right = (resdesc.Width);
+	box.top = 0;
+	box.bottom = (resdesc.Height);
+	box.front = 0;
+	box.back = 1;
+	result = textureBuffer->WriteToSubresource(0, &box, &data[0], 4 * box.right, bmpInfoHeader.biSizeImage);
+
+	//テクスチャのフェンス(待ち)
+	cmdList->ResourceBarrier(1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(textureBuffer,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	cmdList->Close();
+	ExecuteCommand();
+
+	//テクスチャリソース
+	D3D12_DESCRIPTOR_HEAP_DESC texDescriptorHeapDesc_SRV = {};
+	texDescriptorHeapDesc_SRV.NumDescriptors = 1;
+	texDescriptorHeapDesc_SRV.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	texDescriptorHeapDesc_SRV.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	result = dev->CreateDescriptorHeap(&texDescriptorHeapDesc_SRV, IID_PPV_ARGS(&rgstDescHeap));
+
+	//シェーダリソースビュー
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	srvHandle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	dev->CreateShaderResourceView(textureBuffer, &srvDesc, srvHandle);
+
+	//サンプラー
+	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(U方向)
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(V方向)
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(W方向)
+	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;//MIPMAP上限なし
+	samplerDesc.MinLOD = 0.0f;//MIPMAP下限なし
+	samplerDesc.MipLODBias = 0.0f;//MIPMAPのバイアス
+	samplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色(黒透明)
+	samplerDesc.ShaderRegister = 0;//使用するシェーダレジスタ
+	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;//どのくらいのデータをシェーダに見せるか(全部)
+	samplerDesc.RegisterSpace = 0;//0でいいよ
+	samplerDesc.MaxAnisotropy = 0;//Filter が Anisotropy の時のみ有効
+	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
+
+	//レンジ
+	D3D12_DESCRIPTOR_RANGE descriptorRange = {};
+	//テクスチャ用
+	descriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	descriptorRange.BaseShaderRegister = 0;//レジスタ番号
+	//descriptorRange.NumDescriptors = 1;
+	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//ルートパラメーター
+	//テクスチャ用
+	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam.DescriptorTable.NumDescriptorRanges = 1;
+	rootParam.DescriptorTable.pDescriptorRanges = &descriptorRange;//対応するレンジへのポインタ
+	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;//ピクセルシェーダから参照;
+
+	MyDirectX12::CreateRootSignature();
 }
 
 void MyDirectX12::InLoopDx12()
@@ -207,6 +323,12 @@ void MyDirectX12::InLoopDx12()
 
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
+
+	//テクスチャ用デスクリプターヒープのセット
+	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
+
+	//テクスチャ用デスクリプターヒープの指定
+	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
@@ -388,7 +510,13 @@ void MyDirectX12::CreateDescriptorHeap()
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	descHeapDesc.NumDescriptors = screenBufferNum;
 	descHeapDesc.NodeMask = 0;
+	
+	/*descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	descHeapDesc.NumDescriptors = 1;
+	descHeapDesc.NodeMask = 0;*/
 	result = dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&descriptorHeapRTV));
+	int a = 0;
 }
 
 void MyDirectX12::CreateSwapChain()
@@ -447,6 +575,10 @@ void MyDirectX12::CreateRootSignature()
 
 	D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
 	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rsDesc.NumStaticSamplers = 1;
+	rsDesc.pStaticSamplers = &samplerDesc;
+	rsDesc.NumParameters = 1;//テクスチャと定数パラメータの合計数
+	rsDesc.pParameters = &rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
 
