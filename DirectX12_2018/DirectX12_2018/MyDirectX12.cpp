@@ -123,40 +123,8 @@ void MyDirectX12::OutLoopDx12()
 	//シェーダへ送る情報
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 		{ "POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
-		{ "TEXCOORD",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+		{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 	};
-
-	//パイプラインステート
-	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
-
-	//ルートシグネチャと頂点レイアウト
-	gpsDesc.pRootSignature = rootSignature;
-	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	gpsDesc.InputLayout.NumElements = _countof(inputLayouts);
-	//シェーダ
-	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
-	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
-	//ラスタライザ
-	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-	//レンダーターゲット
-	gpsDesc.NumRenderTargets = 1;
-	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;//一致しておく必要がある
-	//深度ステンシル
-	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
-	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
-	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;//DSV必須
-	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
-	
-	//その他
-	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-	gpsDesc.NodeMask = 0;
-	gpsDesc.SampleDesc.Count = 1;//いる
-	gpsDesc.SampleDesc.Quality = 0;//いる
-	gpsDesc.SampleMask = 0xffffffff;//全部1
-	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;//三角形
-
-	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
 
 	//ビューポート
 	viewport.TopLeftX = 0;
@@ -283,7 +251,7 @@ void MyDirectX12::OutLoopDx12()
 	//テクスチャ用
 	descriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
 	descriptorRange.BaseShaderRegister = 0;//レジスタ番号
-	//descriptorRange.NumDescriptors = 1;
+	descriptorRange.NumDescriptors = 1;
 	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	//ルートパラメーター
 	//テクスチャ用
@@ -293,6 +261,39 @@ void MyDirectX12::OutLoopDx12()
 	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;//ピクセルシェーダから参照;
 
 	MyDirectX12::CreateRootSignature();
+
+	//パイプラインステート
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
+
+	//ルートシグネチャと頂点レイアウト
+	gpsDesc.pRootSignature = rootSignature;
+	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
+	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);;//_countof(inputLayouts);
+	//シェーダ
+	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
+	//ラスタライザ
+	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	//レンダーターゲット
+	gpsDesc.NumRenderTargets = 1;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;//一致しておく必要がある
+	//深度ステンシル
+	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
+	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
+	//gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	//gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;//DSV必須
+	//gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
+	
+	//その他
+	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.NodeMask = 0;
+	gpsDesc.SampleDesc.Count = 1;//いる
+	gpsDesc.SampleDesc.Quality = 0;//いる
+	gpsDesc.SampleMask = 0xffffffff;//全部1
+	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;//三角形
+
+	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
+
 }
 
 void MyDirectX12::InLoopDx12()
@@ -511,10 +512,6 @@ void MyDirectX12::CreateDescriptorHeap()
 	descHeapDesc.NumDescriptors = screenBufferNum;
 	descHeapDesc.NodeMask = 0;
 	
-	/*descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	descHeapDesc.NumDescriptors = 1;
-	descHeapDesc.NodeMask = 0;*/
 	result = dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&descriptorHeapRTV));
 	int a = 0;
 }
