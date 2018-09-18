@@ -12,15 +12,26 @@
 //Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
 //					{ { 0.4f,-0.5f,0.0f } },
 //					{ { -0.4f,-0.5f,0.0f } } };
+//
+//Vertex vertices[] = { { { -0.4f,-0.5f,0.0f } },
+//					{ { -0.4f,0.5f,0.0f } },
+//					{ { 0.4f,-0.5f,0.0f } }, 
+//					{ { 0.4f,0.5f,0.0f } },};
 
 //四角
 Vertex vertices[] = {
-	DirectX::XMFLOAT3(-0.5,-0.9,0),
-	DirectX::XMFLOAT3(-0.5,0.9,0),
-	DirectX::XMFLOAT3(0.5,-0.9,0),
-	DirectX::XMFLOAT3(0.5,0.9,0),
-};
-std::vector<unsigned short> indices = { 0,2,1,2,3,1 };//インデックス
+	DirectX::XMFLOAT3(-0.5f,-0.9f,0.f),
+	DirectX::XMFLOAT3(-0.5f,0.9f,0.f),
+	DirectX::XMFLOAT3(0.5f,-0.9f,0.f),
+	DirectX::XMFLOAT3(0.5f,0.9f,0.f),
+};
+
+//std::vector<unsigned short> indices = { 0,2,1,2,3,1 };//インデックス
+//std::vector<unsigned short> indices = { 1,0,3,0,2,3 };//インデックス
+std::vector<unsigned short> indices = { 0,1,2,0,3,2 };//インデックス(N)
+//std::vector<unsigned short> indices = { 0,1,3,3,2,0 };//インデックス(Z)
+
+
 
 const int screenBufferNum = 2;//画面バッファの数
 
@@ -54,26 +65,25 @@ void MyDirectX12::OutLoopDx12()
 	//バーテックスバッファ
 	ID3D12Resource* vertexBuffer = nullptr;
 	result = dev->CreateCommittedResource(
-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
-			D3D12_HEAP_FLAG_NONE,//指定なし
-			&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-			D3D12_RESOURCE_STATE_GENERIC_READ,//???
-			nullptr,//nullptrで良い
-			IID_PPV_ARGS(&vertexBuffer));
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+		D3D12_HEAP_FLAG_NONE,//指定なし
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
+		D3D12_RESOURCE_STATE_GENERIC_READ,//???
+		nullptr,//nullptrで良い
+		IID_PPV_ARGS(&vertexBuffer));
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
-	/*Vertex* vb = nullptr;*/
+	Vertex* vb = nullptr;
 	char* pdata = nullptr;
 
-	result = vertexBuffer->Map(0, &range, (void**)&pdata);
-	memcpy(pdata, vertices, sizeof(vertices));
-	//std::copy(std::begin(vertices), std::end(vertices), &pdata);
+	result = vertexBuffer->Map(0, &range, (void**)&vb);
+	std::copy(std::begin(vertices), std::end(vertices), vb);
 	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = sizeof(Vertex)/* * _countof(vertices)*/;
+	vbView.StrideInBytes = sizeof(Vertex);
 	vbView.SizeInBytes = sizeof(vertices);
 
 	//インデックスバッファ
@@ -81,12 +91,10 @@ void MyDirectX12::OutLoopDx12()
 	result = dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 		D3D12_HEAP_FLAG_NONE,//指定なし
-		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0])),//サイズ
+		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0]) * 4),//サイズ
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&indexBuffer));
-
-	auto a = CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0]));
 
 	unsigned short* idxdata = nullptr;
 	D3D12_RANGE indexRange = { 0,0 };
@@ -96,7 +104,7 @@ void MyDirectX12::OutLoopDx12()
 
 	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
-	ibView.SizeInBytes = indices.size() * sizeof(indices[0]);
+	ibView.SizeInBytes = indices.size() * sizeof(indices[0]) * 4;
 
 	//シェーダー
 	ID3DBlob* vertexShader = nullptr;
@@ -112,14 +120,14 @@ void MyDirectX12::OutLoopDx12()
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 
-	result = D3D12SerializeRootSignature(&rootSignatureDesc, 
-			 D3D_ROOT_SIGNATURE_VERSION_1, 
-			 &rootSignatureBlob, &error);
+	result = D3D12SerializeRootSignature(&rootSignatureDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&rootSignatureBlob, &error);
 
 	result = dev->CreateRootSignature(0,
-			 rootSignatureBlob->GetBufferPointer(), 
-			 rootSignatureBlob->GetBufferSize(),
-			 IID_PPV_ARGS(&rootSignature));
+		rootSignatureBlob->GetBufferPointer(),
+		rootSignatureBlob->GetBufferSize(),
+		IID_PPV_ARGS(&rootSignature));
 
 	//シェーダへ送る情報
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
@@ -132,8 +140,7 @@ void MyDirectX12::OutLoopDx12()
 	//ルートシグネチャと頂点レイアウト
 	gpsDesc.pRootSignature = rootSignature;
 	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	//gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
-	gpsDesc.InputLayout.NumElements = _countof(inputLayouts)/* / sizeof(D3D12_INPUT_ELEMENT_DESC)*/;
+	gpsDesc.InputLayout.NumElements = _countof(inputLayouts);
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
@@ -142,7 +149,7 @@ void MyDirectX12::OutLoopDx12()
 	//レンダーターゲット
 	gpsDesc.NumRenderTargets = 1;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;//一致しておく必要がある
-	//深度ステンシル
+													   //深度ステンシル
 	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
 	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
 	//gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
@@ -156,7 +163,7 @@ void MyDirectX12::OutLoopDx12()
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;//三角形
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
-	
+
 	//ビューポート
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
@@ -165,7 +172,7 @@ void MyDirectX12::OutLoopDx12()
 	viewport.MinDepth = 0.f;//近い
 	viewport.MaxDepth = 1.f;//遠い
 
-	//シザーレクト
+							//シザーレクト
 	scissorRect.left = 0;
 	scissorRect.right = WindowWidth;
 	scissorRect.top = 0;
@@ -193,7 +200,7 @@ void MyDirectX12::InLoopDx12()
 	std::cout << "3" << std::endl;
 	//基本この下以降に追加する
 	//CD3DX12_GPU_DESCRIPTOR_HANDLE rtv(heapStartGPU, bbindex, descriptorSizeRTV);
-	
+
 	//レンダーターゲットのセット
 	cmdList->OMSetRenderTargets(1, &heapStartCPU, false, nullptr);//レンダーターゲット設定
 	cmdList->ClearRenderTargetView(descriptorHandle, clearColor, 0, nullptr);//クリア
@@ -209,12 +216,12 @@ void MyDirectX12::InLoopDx12()
 
 	//シザーレクトのセット
 	cmdList->RSSetScissorRects(1, &scissorRect);
-	
-	//インデックスバッファのセット
-	cmdList->IASetIndexBuffer(&ibView);
 
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
+
+	//インデックスバッファのセット
+	cmdList->IASetIndexBuffer(&ibView);
 
 	//形情報のセット
 	//三角
@@ -227,13 +234,13 @@ void MyDirectX12::InLoopDx12()
 
 	cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
-	cmdList->ResourceBarrier(1, 
+	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
-		D3D12_RESOURCE_STATE_RENDER_TARGET, 
-		D3D12_RESOURCE_STATE_PRESENT));
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			D3D12_RESOURCE_STATE_PRESENT));
 
 	cmdList->Close();//リストのクローズ
-	
+
 	for (auto& cmd : commandlist)
 	{
 		cmd();
@@ -258,7 +265,7 @@ void MyDirectX12::WaitWithFence()
 	cmdQueue->Signal(fence, ++fenceValue);
 	while (fence->GetCompletedValue() != fenceValue)
 	{
-		std::cout << "ふぇんすだよ" << std::endl;
+		//std::cout << "ふぇんすだよ" << std::endl;
 	}
 }
 
@@ -297,6 +304,22 @@ void MyDirectX12::CreateDXGIFactory()
 
 void MyDirectX12::CreateDevice()
 {
+	//アダプターの作成
+	std::vector <IDXGIAdapter*> adapters;
+	IDXGIAdapter* adapter = nullptr;
+	for (int i = 0; dxgiFactory->EnumAdapters(i, &adapter) != DXGI_ERROR_NOT_FOUND; ++i) {
+		adapters.push_back(adapter);
+		//この中から NVIDIA の奴を探す
+		for (auto adpt : adapters) {
+			DXGI_ADAPTER_DESC adesc = {};
+			adpt->GetDesc(&adesc);
+			std::wstring strDesc = adesc.Description;
+			if (strDesc.find(L"NVIDIA") != std::string::npos) {//NVIDIAアダプタを強制
+				adapter = adpt;
+				break;
+			}
+		}
+	}
 
 	//デバイスの作成
 
@@ -311,7 +334,7 @@ void MyDirectX12::CreateDevice()
 
 	for (auto lev : levels)
 	{
-		result = D3D12CreateDevice(nullptr, lev, IID_PPV_ARGS(&dev));
+		result = D3D12CreateDevice(adapter, lev, IID_PPV_ARGS(&dev));
 		if (result == S_OK)
 		{
 			level = lev;

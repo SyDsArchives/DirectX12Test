@@ -9,9 +9,8 @@ struct Output{
 Output vs( float4 pos:POSITION )
 {
 	Output output;
-	output.svpos = output.pos = pos;
-	/*output.svpos = pos;
-	output.pos = pos;*/
+	output.svpos = pos;
+	output.pos = pos;
 	//output.color = pos;
 	return output;
 }
