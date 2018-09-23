@@ -252,7 +252,8 @@ void MyDirectX12::OutLoopDx12()
 	descriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
 	descriptorRange.BaseShaderRegister = 0;//レジスタ番号
 	descriptorRange.NumDescriptors = 1;
-	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	//ルートパラメーター
 	//テクスチャ用
 	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
