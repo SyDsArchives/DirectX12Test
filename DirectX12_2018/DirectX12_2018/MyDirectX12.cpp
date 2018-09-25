@@ -202,14 +202,14 @@ void MyDirectX12::OutLoopDx12()
 		IID_PPV_ARGS(&textureBuffer));
 
 	//定数バッファ
-	struct Cbuffer {
-		DirectX::XMMATRIX world;
-	};
-	Cbuffer wvp;
+	//struct Cbuffer {
+	//	DirectX::XMMATRIX world;
+	//};
+	//Cbuffer wvp;
+	//
+	//DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
 
-	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
-
-	wvp.world = world;
+	//wvp.world = world;
 
 	unsigned int buffnum = 0;
 	D3D12_HEAP_PROPERTIES cbvHeapProperties = {};
@@ -221,20 +221,14 @@ void MyDirectX12::OutLoopDx12()
 
 	result = dev->CreateCommittedResource(&cbvHeapProperties,
 		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer((sizeof(Cbuffer) + 0xff)&~0xff),//&CD3DX12_RESOURCE_DESC::Buffer(buffnum * (256 - buffnum % 256) % 256),
+		&CD3DX12_RESOURCE_DESC::Buffer((sizeof(DirectX::XMMATRIX) + 0xff)&~0xff),//&CD3DX12_RESOURCE_DESC::Buffer(buffnum * (256 - buffnum % 256) % 256),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&constantBuffer));
 
-	DirectX::XMMATRIX* m = nullptr;
-	result = constantBuffer->Map(0, nullptr, (void**)m);
-	*m = DirectX::XMMatrixIdentity();//ココエラー
-	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {}; 
+	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
 	desc.BufferLocation = constantBuffer->GetGPUVirtualAddress();
-	desc.SizeInBytes = (sizeof(Cbuffer) + 0xff)&~0xff;
-	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
-	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	dev->CreateConstantBufferView(&desc,handle);
+	desc.SizeInBytes = (sizeof(DirectX::XMMATRIX) + 0xff)&~0xff;
 
 	//テクスチャの書き込み
 	D3D12_RESOURCE_DESC resdesc = {};
@@ -274,7 +268,15 @@ void MyDirectX12::OutLoopDx12()
 
 	srvHandle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 
-	dev->CreateShaderResourceView(textureBuffer, &srvDesc, srvHandle);
+	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	dev->CreateConstantBufferView(&desc, handle);
+
+	result = constantBuffer->Map(0, nullptr, (void**)&m);
+	*m = DirectX::XMMatrixIdentity();
+
+	dev->CreateShaderResourceView(textureBuffer, &srvDesc, handle);
 
 	//サンプラー
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
@@ -307,10 +309,15 @@ void MyDirectX12::OutLoopDx12()
 
 	//ルートパラメーター
 	//テクスチャ用
-	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam.DescriptorTable.NumDescriptorRanges = 1;
-	rootParam.DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
-	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[0].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[0].DescriptorTable.pDescriptorRanges = &descriptorRange[0];//対応するレンジへのポインタ
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	//t[0]
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	MyDirectX12::CreateRootSignature();
 
@@ -320,7 +327,7 @@ void MyDirectX12::OutLoopDx12()
 	//ルートシグネチャと頂点レイアウト
 	gpsDesc.pRootSignature = rootSignature;
 	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);;//_countof(inputLayouts);
+	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);//_countof(inputLayouts);
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
@@ -353,6 +360,8 @@ void MyDirectX12::InLoopDx12()
 	//メインループ内に投げ込む場所
 
 	HRESULT result = S_OK;
+	//*m = DirectX::XMMatrixIdentity();
+
 	float clearColor[4] = { 0, 0, 0, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
@@ -381,7 +390,7 @@ void MyDirectX12::InLoopDx12()
 	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
 
 	//テクスチャ用デスクリプターヒープの指定
-	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+	cmdList->SetGraphicsRootDescriptorTable(1, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
@@ -559,13 +568,12 @@ void MyDirectX12::CreateDescriptorHeap()
 	HRESULT result = S_OK;
 
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
-	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;//D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	descHeapDesc.NumDescriptors = screenBufferNum;
 	descHeapDesc.NodeMask = 0;
 	
 	result = dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&descriptorHeapRTV));
-	int a = 0;
 }
 
 void MyDirectX12::CreateSwapChain()
@@ -608,6 +616,7 @@ void MyDirectX12::CreateRenderTarget()
 		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
 		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
 		descriptorHandleRTV.Offset(descriptorSizeRTV);
+		//descriptorHandle.ptr += descriptorSizeRTV;
 		//descriptorHandleRTV.ptr += descriptorSizeRTV;
 	}
 }
@@ -627,7 +636,7 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.NumStaticSamplers = 1;
 	rsDesc.pStaticSamplers = &samplerDesc;
 	rsDesc.NumParameters = 2;//テクスチャと定数パラメータの合計数
-	rsDesc.pParameters = &rootParam;
+	rsDesc.pParameters = rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
 
