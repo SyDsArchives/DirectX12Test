@@ -25,5 +25,5 @@ float4 ps(Output output):SV_Target
 {
 	//float3 color = tex.Sample(smp,output.uv).abg;
 	//return float4(output.uv.x,output.uv.y,1,1);
-	return tex.Sample(smp,output.uv);
+	return tex.Sample(smp,output.uv).agbr;
 }
