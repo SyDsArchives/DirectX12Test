@@ -41,6 +41,9 @@
     <ClInclude Include="MyDirectX12.h">
       <Filter>ヘッダー ファイル</Filter>
     </ClInclude>
+    <ClInclude Include="..\Library\DirectXTex-master\DirectXTex\DirectXTex.h">
+      <Filter>ヘッダー ファイル</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl">

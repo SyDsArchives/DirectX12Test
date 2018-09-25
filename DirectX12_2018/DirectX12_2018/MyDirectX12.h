@@ -80,6 +80,9 @@ private:
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
 
+	//定数バッファ 
+	ID3D12Resource* constantBuffer;
+
 	//テクスチャリソース
 	/*ID3D12DescriptorHeap* srvDescHeap;*/
 

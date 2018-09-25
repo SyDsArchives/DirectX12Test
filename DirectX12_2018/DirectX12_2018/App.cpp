@@ -19,6 +19,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 
 App::App()
 {
+	CoInitializeEx(0,COINITBASE_MULTITHREADED);
 }
 
 

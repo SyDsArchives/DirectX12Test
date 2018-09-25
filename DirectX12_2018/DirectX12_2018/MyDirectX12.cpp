@@ -3,10 +3,12 @@
 #include "d3dx12.h"
 #include <iostream>
 
+#include "DirectXTex.h"
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"d3dcompiler.lib")
+
 #pragma comment(lib,"DirectXTex.lib")
 
 //三角
@@ -16,10 +18,10 @@
 
 //四角
 Vertex vertices[] = {
-	DirectX::XMFLOAT3(-0.5f,-0.9f,0.f),DirectX::XMFLOAT2(0,0),
-	DirectX::XMFLOAT3(-0.5f,0.9f,0.f),DirectX::XMFLOAT2(0,1),
-	DirectX::XMFLOAT3(0.5f,-0.9f,0.f),DirectX::XMFLOAT2(1,0),
-	DirectX::XMFLOAT3(0.5f,0.9f,0.f),DirectX::XMFLOAT2(1,1),
+	DirectX::XMFLOAT3(-0.5f,-0.9f,0.f),DirectX::XMFLOAT2(0,1),
+	DirectX::XMFLOAT3(-0.5f,0.9f,0.f),DirectX::XMFLOAT2(0,0),
+	DirectX::XMFLOAT3(0.5f,-0.9f,0.f),DirectX::XMFLOAT2(1,1),
+	DirectX::XMFLOAT3(0.5f,0.9f,0.f),DirectX::XMFLOAT2(1,0),
 };
 
 std::vector<unsigned short> indices = { 0,1,2,1,3,2 };//インデックス(N)
@@ -29,7 +31,8 @@ const int screenBufferNum = 2;//画面バッファの数
 
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
-fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr)
+fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
+constantBuffer(nullptr)
 {
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -135,33 +138,40 @@ void MyDirectX12::OutLoopDx12()
 	viewport.MinDepth = 0.f;//近い
 	viewport.MaxDepth = 1.f;//遠い
 
-							//シザーレクト
+	//シザーレクト
 	scissorRect.left = 0;
 	scissorRect.right = WindowWidth;
 	scissorRect.top = 0;
 	scissorRect.bottom = WindowHeight;
 
-	//テクスチャの読み込み
-	BITMAPFILEHEADER bmpFileHeader = {};
-	BITMAPINFOHEADER bmpInfoHeader = {};
+	//bmp
+	////テクスチャの読み込み
+	//BITMAPFILEHEADER bmpFileHeader = {};
+	//BITMAPINFOHEADER bmpInfoHeader = {};
 
-	FILE* tiles;
-	std::vector<char> data;
-	tiles = fopen("resource/img/tiles.bmp", "rb");
-	fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, tiles);
-	fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, tiles);
-	data.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
-	//反転読み込み防止のため一つずつ読み込む
-	for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
-	{
-		for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
-		{
-			unsigned int address = line * bmpInfoHeader.biWidth * 4;
-			data[address + count] = 0;
-			fread(&data[address + count + 1], sizeof(unsigned char), 3, tiles);
-		}
-	}
-	fclose(tiles);
+	//FILE* tiles;
+	//std::vector<char> data;
+	//tiles = fopen("resource/img/tiles.bmp", "rb");
+	//fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, tiles);
+	//fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, tiles);
+	//data.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
+	////反転読み込み防止のため一つずつ読み込む
+	//for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
+	//{
+	//	for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
+	//	{
+	//		unsigned int address = line * bmpInfoHeader.biWidth * 4;
+	//		data[address + count] = 0;
+	//		fread(&data[address + count + 1], sizeof(unsigned char), 3, tiles);
+	//	}
+	//}
+	//fclose(tiles);
+
+	DirectX::TexMetadata metadata;
+	DirectX::ScratchImage img;
+	auto res = DirectX::LoadFromWICFile(L"resource/img/TrustHeart.png", 0, &metadata, img);
+	
+	auto simg = img.GetImage(0,0,0);
 
 	//リソース関連？？
 	D3D12_HEAP_PROPERTIES heapprop = {};
@@ -174,10 +184,10 @@ void MyDirectX12::OutLoopDx12()
 	D3D12_RESOURCE_DESC texResourceDesc = {};
 	texResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	texResourceDesc.Alignment = 0;
-	texResourceDesc.Width = bmpInfoHeader.biWidth;//画像の横幅
-	texResourceDesc.Height = bmpInfoHeader.biHeight;//画像の縦幅
-	texResourceDesc.DepthOrArraySize = 1;
-	texResourceDesc.MipLevels = 0;
+	texResourceDesc.Width = metadata.width;//画像の横幅
+	texResourceDesc.Height = metadata.height;//画像の縦幅
+	texResourceDesc.DepthOrArraySize = metadata.arraySize;
+	texResourceDesc.MipLevels = metadata.mipLevels;
 	texResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	texResourceDesc.SampleDesc.Count = 1;
 	texResourceDesc.SampleDesc.Quality = 0;
@@ -185,11 +195,46 @@ void MyDirectX12::OutLoopDx12()
 	texResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 	result = dev->CreateCommittedResource(&heapprop,
-		D3D12_HEAP_FLAG_NONE,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
 		&texResourceDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&textureBuffer));
+
+	//定数バッファ
+	struct Cbuffer {
+		DirectX::XMMATRIX world;
+	};
+	Cbuffer wvp;
+
+	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
+
+	wvp.world = world;
+
+	unsigned int buffnum = 0;
+	D3D12_HEAP_PROPERTIES cbvHeapProperties = {};
+	cbvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	cbvHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	cbvHeapProperties.CreationNodeMask = 1;
+	cbvHeapProperties.VisibleNodeMask = 1;
+	cbvHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+	result = dev->CreateCommittedResource(&cbvHeapProperties,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer((sizeof(Cbuffer) + 0xff)&~0xff),//&CD3DX12_RESOURCE_DESC::Buffer(buffnum * (256 - buffnum % 256) % 256),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&constantBuffer));
+
+	DirectX::XMMATRIX* m = nullptr;
+	result = constantBuffer->Map(0, nullptr, (void**)m);
+	*m = DirectX::XMMatrixIdentity();//ココエラー
+	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {}; 
+	desc.BufferLocation = constantBuffer->GetGPUVirtualAddress();
+	desc.SizeInBytes = (sizeof(Cbuffer) + 0xff)&~0xff;
+	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dev->CreateConstantBufferView(&desc,handle);
 
 	//テクスチャの書き込み
 	D3D12_RESOURCE_DESC resdesc = {};
@@ -201,7 +246,7 @@ void MyDirectX12::OutLoopDx12()
 	box.bottom = (resdesc.Height);
 	box.front = 0;
 	box.back = 1;
-	result = textureBuffer->WriteToSubresource(0, &box, &data[0], 4 * box.right, bmpInfoHeader.biSizeImage);
+	result = textureBuffer->WriteToSubresource(0, &box, img.GetPixels(), 4 * box.right, img.GetPixelsSize());
 
 	//テクスチャのフェンス(待ち)
 	cmdList->ResourceBarrier(1,
@@ -248,19 +293,24 @@ void MyDirectX12::OutLoopDx12()
 
 
 	//レンジ
-	D3D12_DESCRIPTOR_RANGE descriptorRange = {};
+	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 	//テクスチャ用
-	descriptorRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
-	descriptorRange.BaseShaderRegister = 0;//レジスタ番号
-	descriptorRange.NumDescriptors = 1;
-	descriptorRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	descriptorRange[0].BaseShaderRegister = 0;//レジスタ番号
+	descriptorRange[0].NumDescriptors = 1;
+	descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//b[0]
+	descriptorRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
+	descriptorRange[1].BaseShaderRegister = 0;//レジスタ番号
+	descriptorRange[1].NumDescriptors = 1;
+	descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//ルートパラメーター
 	//テクスチャ用
 	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam.DescriptorTable.NumDescriptorRanges = 1;
-	rootParam.DescriptorTable.pDescriptorRanges = &descriptorRange;//対応するレンジへのポインタ
-	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;//ピクセルシェーダから参照;
+	rootParam.DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
+	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	MyDirectX12::CreateRootSignature();
 
@@ -576,7 +626,7 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsDesc.NumStaticSamplers = 1;
 	rsDesc.pStaticSamplers = &samplerDesc;
-	rsDesc.NumParameters = 1;//テクスチャと定数パラメータの合計数
+	rsDesc.NumParameters = 2;//テクスチャと定数パラメータの合計数
 	rsDesc.pParameters = &rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);

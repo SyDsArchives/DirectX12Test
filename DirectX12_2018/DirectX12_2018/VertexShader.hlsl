@@ -13,6 +13,8 @@ struct Output{
 Output vs( float4 pos:POSITION,float2 uv:TEXCOORD )
 {
 	Output output;
+	//pos = mul(mat, pos);
+
 	output.svpos = pos;
 	output.pos = pos;
 	output.uv = uv;
@@ -25,5 +27,5 @@ float4 ps(Output output):SV_Target
 {
 	//float3 color = tex.Sample(smp,output.uv).abg;
 	//return float4(output.uv.x,output.uv.y,1,1);
-	return tex.Sample(smp,output.uv).agbr;
+	return tex.Sample(smp,output.uv).rgba;
 }
