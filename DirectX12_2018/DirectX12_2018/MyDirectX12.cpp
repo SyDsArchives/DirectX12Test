@@ -7,6 +7,7 @@
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"d3dcompiler.lib")
+#pragma comment(lib,"DirectXTex.lib")
 
 //ŽOŠp
 //Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
