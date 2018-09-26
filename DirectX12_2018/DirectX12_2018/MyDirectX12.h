@@ -75,14 +75,14 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[2] = {};
+	D3D12_ROOT_PARAMETER rootParam = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
 
 	//定数バッファ 
 	ID3D12Resource* constantBuffer;
-	DirectX::XMMATRIX* m = nullptr;
+	//DirectX::XMMATRIX* mat = nullptr;
 
 	//テクスチャリソース
 	/*ID3D12DescriptorHeap* srvDescHeap;*/

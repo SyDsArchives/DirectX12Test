@@ -44,6 +44,7 @@ constantBuffer(nullptr)
 	MyDirectX12::CreateRenderTarget();
 	/*MyDirectX12::CreateRootSignature();*/
 	MyDirectX12::CreateFence();
+
 }
 
 
@@ -201,34 +202,31 @@ void MyDirectX12::OutLoopDx12()
 		nullptr,
 		IID_PPV_ARGS(&textureBuffer));
 
-	//定数バッファ
+	
 	//struct Cbuffer {
 	//	DirectX::XMMATRIX world;
 	//};
 	//Cbuffer wvp;
 	//
-	//DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
 
-	//wvp.world = world;
+	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
 
-	unsigned int buffnum = 0;
-	D3D12_HEAP_PROPERTIES cbvHeapProperties = {};
-	cbvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
-	cbvHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
-	cbvHeapProperties.CreationNodeMask = 1;
-	cbvHeapProperties.VisibleNodeMask = 1;
-	cbvHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+	DirectX::XMFLOAT3 eye(0, 20, 0);
+	DirectX::XMFLOAT3 target(0, 0, 0);
+	DirectX::XMFLOAT3 up(0, 1, 0);
 
-	result = dev->CreateCommittedResource(&cbvHeapProperties,
-		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer((sizeof(DirectX::XMMATRIX) + 0xff)&~0xff),//&CD3DX12_RESOURCE_DESC::Buffer(buffnum * (256 - buffnum % 256) % 256),
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&constantBuffer));
+	DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 
-	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
-	desc.BufferLocation = constantBuffer->GetGPUVirtualAddress();
-	desc.SizeInBytes = (sizeof(DirectX::XMMATRIX) + 0xff)&~0xff;
+	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth/WindowHeight), 0.1f, 300.f);
+
+	mat.r[0].m128_f32[0] = 2.f / static_cast<float>(WindowWidth);
+	mat.r[1].m128_f32[1] = -2.f / static_cast<float>(WindowHeight);
+	mat.r[3].m128_f32[0] = -1;
+	mat.r[3].m128_f32[1] = 1;
+
+	size_t size = sizeof(mat);
+	size = (size + 0xff)&~0xff;
+	
 
 	//テクスチャの書き込み
 	D3D12_RESOURCE_DESC resdesc = {};
@@ -252,7 +250,7 @@ void MyDirectX12::OutLoopDx12()
 
 	//テクスチャリソース
 	D3D12_DESCRIPTOR_HEAP_DESC texDescriptorHeapDesc_SRV = {};
-	texDescriptorHeapDesc_SRV.NumDescriptors = 1;
+	texDescriptorHeapDesc_SRV.NumDescriptors = 2;
 	texDescriptorHeapDesc_SRV.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	texDescriptorHeapDesc_SRV.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -268,15 +266,35 @@ void MyDirectX12::OutLoopDx12()
 
 	srvHandle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 
-	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
-	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	dev->CreateShaderResourceView(textureBuffer, &srvDesc, srvHandle);
 
-	dev->CreateConstantBufferView(&desc, handle);
+	//定数バッファ
+	D3D12_HEAP_PROPERTIES cbvHeapProperties = {};
+	cbvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	cbvHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	cbvHeapProperties.CreationNodeMask = 1;
+	cbvHeapProperties.VisibleNodeMask = 1;
+	cbvHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+	result = dev->CreateCommittedResource(&cbvHeapProperties,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&constantBuffer));
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC constdesc = {};
+	constdesc.BufferLocation = constantBuffer->GetGPUVirtualAddress();
+	constdesc.SizeInBytes = size;
+
+	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	dev->CreateConstantBufferView(&constdesc, handle);
+
+	DirectX::XMMATRIX* m = nullptr;
 
 	result = constantBuffer->Map(0, nullptr, (void**)&m);
 	*m = DirectX::XMMatrixIdentity();
-
-	dev->CreateShaderResourceView(textureBuffer, &srvDesc, handle);
+	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	//サンプラー
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
@@ -309,15 +327,10 @@ void MyDirectX12::OutLoopDx12()
 
 	//ルートパラメーター
 	//テクスチャ用
-	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[0].DescriptorTable.NumDescriptorRanges = 1;
-	rootParam[0].DescriptorTable.pDescriptorRanges = &descriptorRange[0];//対応するレンジへのポインタ
-	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-	//t[0]
-	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
-	rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
-	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam.DescriptorTable.NumDescriptorRanges = 2;
+	rootParam.DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
+	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	MyDirectX12::CreateRootSignature();
 
@@ -327,7 +340,7 @@ void MyDirectX12::OutLoopDx12()
 	//ルートシグネチャと頂点レイアウト
 	gpsDesc.pRootSignature = rootSignature;
 	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);//_countof(inputLayouts);
+	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
@@ -352,7 +365,6 @@ void MyDirectX12::OutLoopDx12()
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;//三角形
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
-
 }
 
 void MyDirectX12::InLoopDx12()
@@ -636,7 +648,7 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.NumStaticSamplers = 1;
 	rsDesc.pStaticSamplers = &samplerDesc;
 	rsDesc.NumParameters = 2;//テクスチャと定数パラメータの合計数
-	rsDesc.pParameters = rootParam;
+	rsDesc.pParameters = &rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
 
