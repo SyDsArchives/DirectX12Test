@@ -20,6 +20,7 @@ class MyDirectX12
 private:
 	unsigned int bbindex;
 	int descriptorSizeRTV;
+	float angle;
 
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
@@ -75,7 +76,7 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam = {};
+	D3D12_ROOT_PARAMETER rootParam[2] = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;

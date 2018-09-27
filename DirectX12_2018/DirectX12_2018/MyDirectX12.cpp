@@ -32,7 +32,7 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr)
+constantBuffer(nullptr), angle(0.f)
 {
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -210,19 +210,20 @@ void MyDirectX12::OutLoopDx12()
 	//
 
 	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
+	//DirectX::XMMATRIX mat = DirectX::XMMatrixRotationY(++angle);
 
-	DirectX::XMFLOAT3 eye(0, 20, 0);
-	DirectX::XMFLOAT3 target(0, 0, 0);
-	DirectX::XMFLOAT3 up(0, 1, 0);
+	//DirectX::XMFLOAT3 eye(0, 20, 0);
+	//DirectX::XMFLOAT3 target(0, 0, 0);
+	//DirectX::XMFLOAT3 up(0, 1, 0);
 
-	DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+	//DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 
-	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth/WindowHeight), 0.1f, 300.f);
+	//auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth/WindowHeight), 0.1f, 300.f);
 
-	mat.r[0].m128_f32[0] = 2.f / static_cast<float>(WindowWidth);
+	/*mat.r[0].m128_f32[0] = 2.f / static_cast<float>(WindowWidth);
 	mat.r[1].m128_f32[1] = -2.f / static_cast<float>(WindowHeight);
 	mat.r[3].m128_f32[0] = -1;
-	mat.r[3].m128_f32[1] = 1;
+	mat.r[3].m128_f32[1] = 1;*/
 
 	size_t size = sizeof(mat);
 	size = (size + 0xff)&~0xff;
@@ -290,11 +291,11 @@ void MyDirectX12::OutLoopDx12()
 	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 	dev->CreateConstantBufferView(&constdesc, handle);
 
-	DirectX::XMMATRIX* m = nullptr;
-
-	result = constantBuffer->Map(0, nullptr, (void**)&m);
-	*m = DirectX::XMMatrixIdentity();
 	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	DirectX::XMMATRIX* m = nullptr;
+	result = constantBuffer->Map(0, nullptr, (void**)&m);
+	*m = mat;
 
 	//サンプラー
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
@@ -307,7 +308,7 @@ void MyDirectX12::OutLoopDx12()
 	samplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色(黒透明)
 	samplerDesc.ShaderRegister = 0;//使用するシェーダレジスタ
 	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;//どのくらいのデータをシェーダに見せるか(全部)
-	samplerDesc.RegisterSpace = 0;//0でいいよ
+	samplerDesc.RegisterSpace = 0;
 	samplerDesc.MaxAnisotropy = 0;//Filter が Anisotropy の時のみ有効
 	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 
@@ -327,10 +328,15 @@ void MyDirectX12::OutLoopDx12()
 
 	//ルートパラメーター
 	//テクスチャ用
-	rootParam.ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam.DescriptorTable.NumDescriptorRanges = 2;
-	rootParam.DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
-	rootParam.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[0].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[0].DescriptorTable.pDescriptorRanges = &descriptorRange[0];//対応するレンジへのポインタ
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 	MyDirectX12::CreateRootSignature();
 
@@ -374,9 +380,12 @@ void MyDirectX12::InLoopDx12()
 	HRESULT result = S_OK;
 	//*m = DirectX::XMMatrixIdentity();
 
-	float clearColor[4] = { 0, 0, 0, 255 };
+	float clearColor[4] = { 0, 0, 255, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
+
+	//auto rgstheapstart = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	//rgstheapstart.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	result = cmdAllocator->Reset();//アロケータリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);//リストリセット
@@ -648,7 +657,7 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.NumStaticSamplers = 1;
 	rsDesc.pStaticSamplers = &samplerDesc;
 	rsDesc.NumParameters = 2;//テクスチャと定数パラメータの合計数
-	rsDesc.pParameters = &rootParam;
+	rsDesc.pParameters = rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
 

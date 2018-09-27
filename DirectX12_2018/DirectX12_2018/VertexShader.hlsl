@@ -1,5 +1,6 @@
 Texture2D<float4> tex:register(t0);
 SamplerState smp:register(s0);
+matrix mat:register(b0);
 
 struct Output{
 	float4 svpos:SV_POSITION;
@@ -16,7 +17,8 @@ Output vs( float4 pos:POSITION,float2 uv:TEXCOORD )
 	//pos = mul(mat, pos);
 
 	output.svpos = pos;
-	output.pos = pos;
+	//output.pos = pos;
+	output.pos = mul(mat, pos);
 	output.uv = uv;
 	//output.color = pos;
 	return output;
