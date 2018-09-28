@@ -32,7 +32,7 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), angle(0.f)
+constantBuffer(nullptr), angle(1 * (3.14 / 180)),m(nullptr)
 {
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -111,7 +111,7 @@ void MyDirectX12::OutLoopDx12()
 		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShader, nullptr);
 
 	//ルートシグネチャ
-	ID3DBlob* rootSignatureBlob = nullptr;
+	/*ID3DBlob* rootSignatureBlob = nullptr;
 	ID3DBlob* error = nullptr;
 	D3D12_ROOT_SIGNATURE_DESC rootSignatureDesc = {};
 	rootSignatureDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
@@ -123,7 +123,7 @@ void MyDirectX12::OutLoopDx12()
 	result = dev->CreateRootSignature(0,
 		rootSignatureBlob->GetBufferPointer(),
 		rootSignatureBlob->GetBufferSize(),
-		IID_PPV_ARGS(&rootSignature));
+		IID_PPV_ARGS(&rootSignature));*/
 
 	//シェーダへ送る情報
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
@@ -202,33 +202,6 @@ void MyDirectX12::OutLoopDx12()
 		nullptr,
 		IID_PPV_ARGS(&textureBuffer));
 
-	
-	//struct Cbuffer {
-	//	DirectX::XMMATRIX world;
-	//};
-	//Cbuffer wvp;
-	//
-
-	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
-	//DirectX::XMMATRIX mat = DirectX::XMMatrixRotationY(++angle);
-
-	//DirectX::XMFLOAT3 eye(0, 20, 0);
-	//DirectX::XMFLOAT3 target(0, 0, 0);
-	//DirectX::XMFLOAT3 up(0, 1, 0);
-
-	//DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
-
-	//auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth/WindowHeight), 0.1f, 300.f);
-
-	/*mat.r[0].m128_f32[0] = 2.f / static_cast<float>(WindowWidth);
-	mat.r[1].m128_f32[1] = -2.f / static_cast<float>(WindowHeight);
-	mat.r[3].m128_f32[0] = -1;
-	mat.r[3].m128_f32[1] = 1;*/
-
-	size_t size = sizeof(mat);
-	size = (size + 0xff)&~0xff;
-	
-
 	//テクスチャの書き込み
 	D3D12_RESOURCE_DESC resdesc = {};
 	resdesc = textureBuffer->GetDesc();
@@ -270,6 +243,23 @@ void MyDirectX12::OutLoopDx12()
 	dev->CreateShaderResourceView(textureBuffer, &srvDesc, srvHandle);
 
 	//定数バッファ
+	//Cbuffer wvp;
+	//
+	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
+	//DirectX::XMMATRIX mat = /*DirectX::XMMatrixRotationY(angle) * */DirectX::XMMatrixRotationX(angle);
+
+	DirectX::XMFLOAT3 eye(0, 0, -30.f);
+	DirectX::XMFLOAT3 target(0, 0, 0);
+	DirectX::XMFLOAT3 up(0, 1, 0);
+
+	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight), 0.1f, 300.f);
+
+	mat *= DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+	mat *= projection;
+
+	size_t size = sizeof(mat);
+	size = (size + 0xff)&~0xff;
+
 	D3D12_HEAP_PROPERTIES cbvHeapProperties = {};
 	cbvHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
 	cbvHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
@@ -293,9 +283,13 @@ void MyDirectX12::OutLoopDx12()
 
 	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	DirectX::XMMATRIX* m = nullptr;
 	result = constantBuffer->Map(0, nullptr, (void**)&m);
+
 	*m = mat;
+	/*mat.r[0].m128_f32[0] = 2.f / static_cast<float>(WindowWidth);
+	mat.r[1].m128_f32[1] = -2.f / static_cast<float>(WindowHeight);
+	mat.r[3].m128_f32[0] = -1;
+	mat.r[3].m128_f32[1] = 1;*/
 
 	//サンプラー
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
@@ -380,6 +374,9 @@ void MyDirectX12::InLoopDx12()
 	HRESULT result = S_OK;
 	//*m = DirectX::XMMatrixIdentity();
 
+	angle += 0.1f;
+	*m = DirectX::XMMatrixRotationY(angle) * DirectX::XMMatrixRotationX(angle);
+
 	float clearColor[4] = { 0, 0, 255, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
@@ -411,7 +408,9 @@ void MyDirectX12::InLoopDx12()
 	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
 
 	//テクスチャ用デスクリプターヒープの指定
-	cmdList->SetGraphicsRootDescriptorTable(1, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//cmdList->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress());
 
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
@@ -437,7 +436,7 @@ void MyDirectX12::InLoopDx12()
 	//三角形描画
 	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);//頂点情報のみでの描画
 
-	cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
+	cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],

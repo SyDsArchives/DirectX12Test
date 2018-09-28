@@ -4,9 +4,8 @@ matrix mat:register(b0);
 
 struct Output{
 	float4 svpos:SV_POSITION;
-	float4 pos:POSITION;
+	float4 color : COLOR;
 	float2 uv:TEXCOORD;
-	//float4 color : COLOR;
 };
 
 
@@ -15,12 +14,8 @@ Output vs( float4 pos:POSITION,float2 uv:TEXCOORD )
 {
 	Output output;
 	//pos = mul(mat, pos);
-
-	output.svpos = pos;
-	//output.pos = pos;
-	output.pos = mul(mat, pos);
+	output.svpos = output.color = pos;
 	output.uv = uv;
-	//output.color = pos;
 	return output;
 }
 

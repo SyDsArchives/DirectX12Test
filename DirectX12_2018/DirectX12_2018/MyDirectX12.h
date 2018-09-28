@@ -15,12 +15,18 @@ struct Vertex{
 	DirectX::XMFLOAT2 uv;
 };
 
+struct Cbuffer {
+	DirectX::XMMATRIX world;
+	DirectX::XMMATRIX viewproj;
+};
+
 class MyDirectX12
 {
 private:
 	unsigned int bbindex;
 	int descriptorSizeRTV;
 	float angle;
+	DirectX::XMMATRIX* m;
 
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
