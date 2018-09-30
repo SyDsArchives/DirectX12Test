@@ -377,7 +377,7 @@ void MyDirectX12::InLoopDx12()
 	angle += 0.1f;
 	*m = DirectX::XMMatrixRotationY(angle) * DirectX::XMMatrixRotationX(angle);
 
-	float clearColor[4] = { 0, 0, 255, 255 };
+	float clearColor[4] = { 0, 0, 0, 255 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
 
@@ -436,7 +436,7 @@ void MyDirectX12::InLoopDx12()
 	//ŽOŠpŒ`•`‰æ
 	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);//’¸“_î•ñ‚Ì‚Ý‚Å‚Ì•`‰æ
 
-	cmdList->DrawIndexedInstanced(36, 1, 0, 0, 0);
+	cmdList->DrawIndexedInstanced(6, 1, 0, 0, 0);
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
