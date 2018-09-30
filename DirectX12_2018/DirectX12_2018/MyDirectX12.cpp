@@ -32,7 +32,7 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), angle(1 * (3.14 / 180)),m(nullptr)
+constantBuffer(nullptr), angle(1 * (3.14 / 180)),m(nullptr), vertexBuffer(nullptr)
 {
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -44,6 +44,7 @@ constantBuffer(nullptr), angle(1 * (3.14 / 180)),m(nullptr)
 	MyDirectX12::CreateRenderTarget();
 	/*MyDirectX12::CreateRootSignature();*/
 	MyDirectX12::CreateFence();
+	MyDirectX12::CreateVertexBuffer();
 
 }
 
@@ -58,29 +59,28 @@ void MyDirectX12::OutLoopDx12()
 
 	HRESULT result = S_OK;
 
-	//バーテックスバッファ
-	ID3D12Resource* vertexBuffer = nullptr;
-	result = dev->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
-		D3D12_HEAP_FLAG_NONE,//指定なし
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-		D3D12_RESOURCE_STATE_GENERIC_READ,//???
-		nullptr,//nullptrで良い
-		IID_PPV_ARGS(&vertexBuffer));
+	////バーテックスバッファ
+	//result = dev->CreateCommittedResource(
+	//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+	//	D3D12_HEAP_FLAG_NONE,//指定なし
+	//	&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
+	//	D3D12_RESOURCE_STATE_GENERIC_READ,//???
+	//	nullptr,//nullptrで良い
+	//	IID_PPV_ARGS(&vertexBuffer));
 
-	//レンジ
-	D3D12_RANGE range = { 0,0 };
-	Vertex* vb = nullptr;
-	char* pdata = nullptr;
+	////レンジ
+	//D3D12_RANGE range = { 0,0 };
+	//Vertex* vb = nullptr;
+	//char* pdata = nullptr;
 
-	result = vertexBuffer->Map(0, &range, (void**)&vb);
-	std::copy(std::begin(vertices), std::end(vertices), vb);
-	vertexBuffer->Unmap(0, nullptr);
+	//result = vertexBuffer->Map(0, &range, (void**)&vb);
+	//std::copy(std::begin(vertices), std::end(vertices), vb);
+	//vertexBuffer->Unmap(0, nullptr);
 
-	//頂点バッファビュー
-	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = sizeof(Vertex);
-	vbView.SizeInBytes = sizeof(vertices);
+	////頂点バッファビュー
+	//vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	//vbView.StrideInBytes = sizeof(Vertex);
+	//vbView.SizeInBytes = sizeof(vertices);
 
 	//インデックスバッファ
 	ID3D12Resource* indexBuffer = nullptr;
@@ -670,5 +670,32 @@ void MyDirectX12::CreateFence()
 	HRESULT result = S_OK;
 
 	result = dev->CreateFence(fenceValue,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&fence));
+}
+
+void MyDirectX12::CreateVertexBuffer()
+{
+	HRESULT result = S_OK;
+
+	result = dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+		D3D12_HEAP_FLAG_NONE,//指定なし
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
+		D3D12_RESOURCE_STATE_GENERIC_READ,//???
+		nullptr,//nullptrで良い
+		IID_PPV_ARGS(&vertexBuffer));
+
+	//レンジ
+	D3D12_RANGE range = { 0,0 };
+	Vertex* vb = nullptr;
+	char* pdata = nullptr;
+
+	result = vertexBuffer->Map(0, &range, (void**)&vb);
+	std::copy(std::begin(vertices), std::end(vertices), vb);
+	vertexBuffer->Unmap(0, nullptr);
+
+	//頂点バッファビュー
+	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	vbView.StrideInBytes = sizeof(Vertex);
+	vbView.SizeInBytes = sizeof(vertices);
 }
 

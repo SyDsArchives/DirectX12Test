@@ -99,6 +99,9 @@ private:
 	ID3D12DescriptorHeap* dsvDescHeap;//DSV(深度)デスクリプタヒープ
 	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
 
+	//バーテックスバッファ
+	ID3D12Resource* vertexBuffer;
+
 	
 public:
 	MyDirectX12(HWND _hwnd);
@@ -136,6 +139,9 @@ public:
 
 	//フェンス
 	void CreateFence();
+	
+	//バーテックスバッファ
+	void CreateVertexBuffer();
 
 };
 
