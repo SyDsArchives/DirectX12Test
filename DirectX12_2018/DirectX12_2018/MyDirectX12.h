@@ -54,11 +54,14 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
 	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
 
-	//VertexBufferView
+	//VertexBuffer
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
+	ID3D12Resource* vertexBuffer;
 
 	//indexBuffer
 	D3D12_INDEX_BUFFER_VIEW ibView = {};
+	ID3DBlob* vertexShader;
+	ID3DBlob* pixelShader;
 
 	//ルートシグネチャ
 	ID3D12RootSignature* rootSignature;
@@ -83,6 +86,8 @@ private:
 
 	//ルートパラメーター
 	D3D12_ROOT_PARAMETER rootParam[2] = {};
+	//D3D12_ROOT_PARAMETER rootParam = {};
+	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
@@ -98,11 +103,10 @@ private:
 	ID3D12DescriptorHeap* rtvDescHeap;//RTV(レンダーターゲット)デスクリプタヒープ
 	ID3D12DescriptorHeap* dsvDescHeap;//DSV(深度)デスクリプタヒープ
 	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
-
-	//バーテックスバッファ
-	ID3D12Resource* vertexBuffer;
-
 	
+	//PMD関連
+	std::vector<t_Vertex> pmdvertices;
+
 public:
 	MyDirectX12(HWND _hwnd);
 	~MyDirectX12();
@@ -142,6 +146,21 @@ public:
 	
 	//バーテックスバッファ
 	void CreateVertexBuffer();
+
+	//インデックスバッファ
+	void CreateIndexBuffer();
+
+	//テクスチャ
+	void CreateTextureBuffer();
+
+	//定数バッファ
+	void CreateConstantBuffer();
+
+	//ルートパラメーター
+	void CreateRootParameter();
+
+	//パイプラインステート
+	void CreatePiplineState();
 
 };
 
