@@ -15,10 +15,29 @@ struct Vertex{
 	DirectX::XMFLOAT2 uv;
 };
 
+//PMD
+struct PMDData {
+	float version;
+	char modelName[20];
+	char comment[256];
+	unsigned int vertexNum;//頂点数
+};
+
+struct t_Vertex {
+	DirectX::XMFLOAT3 pos;
+	DirectX::XMFLOAT3 nomalVector;
+	DirectX::XMFLOAT2 uv;
+	unsigned short boneNum[2];
+	unsigned char boneWeight;
+	unsigned char edgeFlag;
+};
+
 struct Cbuffer {
 	DirectX::XMMATRIX world;
 	DirectX::XMMATRIX viewproj;
+	//DIrectX::XMFLOAT3 diffu
 };
+
 
 class MyDirectX12
 {
@@ -94,6 +113,8 @@ private:
 
 	//定数バッファ 
 	ID3D12Resource* constantBuffer;
+	Cbuffer wvp = {};
+	Cbuffer* cbuff;
 	//DirectX::XMMATRIX* mat = nullptr;
 
 	//テクスチャリソース
@@ -105,7 +126,10 @@ private:
 	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
 	
 	//PMD関連
-	std::vector<t_Vertex> pmdvertices;
+	char magic[3];
+	PMDData pmddata = {};
+	std::vector<char> pmdvertices;
+	std::vector<t_Vertex> vertex_t;
 
 public:
 	MyDirectX12(HWND _hwnd);
@@ -162,5 +186,8 @@ public:
 	//パイプラインステート
 	void CreatePiplineState();
 
+	void CreateModelVertex();
+	void SetModelVertex(std::vector<char> data);
+	std::vector<char> GetModelData();
 };
 

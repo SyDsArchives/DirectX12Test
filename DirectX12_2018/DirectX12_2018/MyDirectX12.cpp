@@ -35,29 +35,30 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 };
 
 //PMD
-struct PMDData {
-	float version;
-	char modelName[20];
-	char comment[256];
-	unsigned int vertexNum;//頂点数
-};
+//struct PMDData {
+//	float version;
+//	char modelName[20];
+//	char comment[256];
+//	unsigned int vertexNum;//頂点数
+//};
+//
+//struct t_Vertex {
+//	DirectX::XMFLOAT3 pos;
+//	DirectX::XMFLOAT3 nomalVector;
+//	DirectX::XMFLOAT2 uv;
+//	unsigned short boneNum[2];
+//	unsigned char boneWeight;
+//	unsigned char edgeFlag;
+//};38
 
-struct t_Vertex {
-	DirectX::XMFLOAT3 pos;
-	DirectX::XMFLOAT3 nomalVector;
-	DirectX::XMFLOAT2 uv;
-	unsigned short boneNum[2];
-	unsigned char boneWeight;
-	unsigned char edgeFlag;
-};
-
-
+char vertexSize = 38;
 const int screenBufferNum = 2;//画面バッファの数
+
 
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr)
+constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr)
 {
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -85,18 +86,18 @@ MyDirectX12::~MyDirectX12()
 void MyDirectX12::OutLoopDx12()
 {
 	//pmd
-
 	FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
-	char magic[3];
-	PMDData pmddata = {};
 
 	fread(&magic, sizeof(magic), 1, miku_pmd);
 	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
 
-	const unsigned int vertex_size = 38;
-	pmdvertices.resize(pmddata.vertexNum);
+	//std::vector<char> pmdvertices(pmddata.vertexNum * vertexSize);
+	//fread(&pmdvertices[0], pmdvertices.size(), 1, miku_pmd);
 
-	fread(&pmdvertices[0], pmdvertices.size(), 1, miku_pmd);
+	/*pmdvertices.resize(pmddata.vertexNum  * vertexSize);
+	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);*/
+	vertex_t.resize(pmddata.vertexNum * vertexSize);
+	fread(&vertex_t[0], vertex_t.size(), 1, miku_pmd);
 
 	fclose(miku_pmd);
 
@@ -122,7 +123,9 @@ void MyDirectX12::InLoopDx12()
 
 	HRESULT result = S_OK;
 
-	float clearColor[4] = { 0, 0, 0, 255 };
+	*cbuff = wvp;
+
+	float clearColor[4] = { 1, 0, 1, 1 };
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
 
@@ -173,14 +176,15 @@ void MyDirectX12::InLoopDx12()
 
 	//形情報のセット
 	//三角
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
 	//四角
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 	//三角形描画
 	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);//頂点情報のみでの描画
 
-	cmdList->DrawIndexedInstanced(8, 1, 0, 0, 0);
+	//cmdList->DrawIndexedInstanced(8, 1, 0, 0, 0);
+	cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0 );
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -400,26 +404,28 @@ void MyDirectX12::CreateVertexBuffer()
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 		D3D12_HEAP_FLAG_NONE,//指定なし
 		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(pmdvertices.size())),
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertex_t.size())),
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&vertexBuffer));
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
-	Vertex* vb = nullptr;
-	char* pdata = nullptr;
+	//Vertex* vb = nullptr;
+	unsigned char* pdata = nullptr;
+	t_Vertex* tv = nullptr;
 
-	result = vertexBuffer->Map(0, &range, (void**)&vb);
+	result = vertexBuffer->Map(0, &range, (void**)&tv);
 	/*std::copy(std::begin(vertices), std::end(vertices), vb);*/
-	std::copy(pmdvertices.begin(), pmdvertices.end(), vb);
+	std::copy(vertex_t.begin(), vertex_t.end(), tv);
 	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = sizeof(Vertex);
+	//vbView.StrideInBytes = sizeof(Vertex);
 	//vbView.SizeInBytes = sizeof(vertices);
-	vbView.SizeInBytes = sizeof(pmdvertices.size());
+	vbView.StrideInBytes = vertexSize;
+	vbView.SizeInBytes = pmdvertices.size();
 
 
 }
@@ -569,18 +575,18 @@ void MyDirectX12::CreateConstantBuffer()
 {
 	HRESULT result = S_OK;
 
-	DirectX::XMMATRIX mat = DirectX::XMMatrixRotationY(angle);
+	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
 
-	DirectX::XMFLOAT3 eye(0, 0, -30.f);
+	DirectX::XMFLOAT3 eye(0, 0, -100.f);
 	DirectX::XMFLOAT3 target(0, 0, 0);
 	DirectX::XMFLOAT3 up(0, 1, 0);
-
+	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
 	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight), 0.1f, 300.f);
 
-	mat *= DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
-	mat *= projection;
+	wvp.world = mat;
+	wvp.viewproj = camera * projection;
 
-	size_t size = sizeof(mat);
+	size_t size = sizeof(Cbuffer);
 	size = (size + 0xff)&~0xff;
 
 	D3D12_HEAP_PROPERTIES cbvHeapProperties = {};
@@ -606,8 +612,10 @@ void MyDirectX12::CreateConstantBuffer()
 
 	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	result = constantBuffer->Map(0, nullptr, (void**)&m);
-	*m = mat;
+	D3D12_RANGE cbRange = {0,0};
+	result = constantBuffer->Map(0, &cbRange, (void**)&cbuff);
+	
+	*cbuff = wvp;
 }
 
 void MyDirectX12::CreateRootParameter()
@@ -650,11 +658,6 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
 	rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
 	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-	//rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	//rootParam[0].DescriptorTable.NumDescriptorRanges = 2;
-	//rootParam[0].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
-	//rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 }
 
@@ -716,6 +719,7 @@ void MyDirectX12::CreatePiplineState()
 	gpsDesc.SampleDesc.Quality = 0;//いる
 	gpsDesc.SampleMask = 0xffffffff;//全部1
 	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;//三角形
+
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
 }
