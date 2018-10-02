@@ -167,6 +167,12 @@ public:
 
 	//フェンス
 	void CreateFence();
+
+	//ビューポート
+	void SetViewPort();
+
+	//シザーレクト
+	void SetScissorRect();
 	
 	//バーテックスバッファ
 	void CreateVertexBuffer();

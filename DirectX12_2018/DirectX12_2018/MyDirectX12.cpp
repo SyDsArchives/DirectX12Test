@@ -72,10 +72,12 @@ constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexB
 	MyDirectX12::CreateVertexBuffer();
 	MyDirectX12::CreateIndexBuffer();
 	MyDirectX12::CreateTextureBuffer();
-	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateRootParameter();
 	MyDirectX12::CreateRootSignature();
 	MyDirectX12::CreatePiplineState();
+	MyDirectX12::SetViewPort();
+	MyDirectX12::SetScissorRect();
+	MyDirectX12::CreateConstantBuffer();
 }
 
 
@@ -100,21 +102,6 @@ void MyDirectX12::OutLoopDx12()
 	fread(&vertex_t[0], vertex_t.size(), 1, miku_pmd);
 
 	fclose(miku_pmd);
-
-	//ビューポート
-	viewport.TopLeftX = 0;
-	viewport.TopLeftY = 0;
-	viewport.Width = WindowWidth;
-	viewport.Height = WindowHeight;
-	viewport.MinDepth = 0.f;//近い
-	viewport.MaxDepth = 1.f;//遠い
-
-	//シザーレクト
-	scissorRect.left = 0;
-	scissorRect.right = WindowWidth;
-	scissorRect.top = 0;
-	scissorRect.bottom = WindowHeight;
-
 }
 
 void MyDirectX12::InLoopDx12()
@@ -172,7 +159,7 @@ void MyDirectX12::InLoopDx12()
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
 
 	//インデックスバッファのセット
-	cmdList->IASetIndexBuffer(&ibView);
+	//cmdList->IASetIndexBuffer(&ibView);
 
 	//形情報のセット
 	//三角
@@ -336,7 +323,7 @@ void MyDirectX12::CreateDescriptorHeap()
 	HRESULT result = S_OK;
 
 	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
-	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;//D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
 	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
 	descHeapDesc.NumDescriptors = screenBufferNum;
 	descHeapDesc.NodeMask = 0;
@@ -396,6 +383,26 @@ void MyDirectX12::CreateFence()
 	result = dev->CreateFence(fenceValue,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&fence));
 }
 
+void MyDirectX12::SetViewPort()
+{
+	//ビューポート
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = WindowWidth;
+	viewport.Height = WindowHeight;
+	viewport.MinDepth = 0.f;//近い
+	viewport.MaxDepth = 1.f;//遠い
+}
+
+void MyDirectX12::SetScissorRect()
+{
+	//シザーレクト
+	scissorRect.left = 0;
+	scissorRect.right = WindowWidth;
+	scissorRect.top = 0;
+	scissorRect.bottom = WindowHeight;
+}
+
 void MyDirectX12::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
@@ -425,9 +432,7 @@ void MyDirectX12::CreateVertexBuffer()
 	//vbView.StrideInBytes = sizeof(Vertex);
 	//vbView.SizeInBytes = sizeof(vertices);
 	vbView.StrideInBytes = vertexSize;
-	vbView.SizeInBytes = pmdvertices.size();
-
-
+	vbView.SizeInBytes = vertex_t.size();
 }
 
 void MyDirectX12::CreateIndexBuffer()
@@ -551,12 +556,12 @@ void MyDirectX12::CreateTextureBuffer()
 	ExecuteCommand();
 
 	//テクスチャリソース
-	D3D12_DESCRIPTOR_HEAP_DESC texDescriptorHeapDesc_SRV = {};
-	texDescriptorHeapDesc_SRV.NumDescriptors = 2;
-	texDescriptorHeapDesc_SRV.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	texDescriptorHeapDesc_SRV.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	D3D12_DESCRIPTOR_HEAP_DESC texDescriptorHeapDesc = {};
+	texDescriptorHeapDesc.NumDescriptors = 2;
+	texDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	texDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-	result = dev->CreateDescriptorHeap(&texDescriptorHeapDesc_SRV, IID_PPV_ARGS(&rgstDescHeap));
+	result = dev->CreateDescriptorHeap(&texDescriptorHeapDesc, IID_PPV_ARGS(&rgstDescHeap));
 
 	//シェーダリソースビュー
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
@@ -575,17 +580,6 @@ void MyDirectX12::CreateConstantBuffer()
 {
 	HRESULT result = S_OK;
 
-	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
-
-	DirectX::XMFLOAT3 eye(0, 0, -100.f);
-	DirectX::XMFLOAT3 target(0, 0, 0);
-	DirectX::XMFLOAT3 up(0, 1, 0);
-	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
-	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight), 0.1f, 300.f);
-
-	wvp.world = mat;
-	wvp.viewproj = camera * projection;
-
 	size_t size = sizeof(Cbuffer);
 	size = (size + 0xff)&~0xff;
 
@@ -595,6 +589,19 @@ void MyDirectX12::CreateConstantBuffer()
 	cbvHeapProperties.CreationNodeMask = 1;
 	cbvHeapProperties.VisibleNodeMask = 1;
 	cbvHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+	/*D3D12_RESOURCE_DESC desc = {};
+    desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    desc.Alignment = 0;
+    desc.Width = sizeof(Cbuffer);
+    desc.Height = 1;
+    desc.DepthOrArraySize = 1;
+    desc.MipLevels = 1;
+    desc.Format = DXGI_FORMAT_UNKNOWN;
+    desc.SampleDesc.Count = 1;
+    desc.SampleDesc.Quality = 0;
+    desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    desc.Flags = D3D12_RESOURCE_FLAG_NONE;*/
 
 	result = dev->CreateCommittedResource(&cbvHeapProperties,
 		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
@@ -614,8 +621,21 @@ void MyDirectX12::CreateConstantBuffer()
 
 	D3D12_RANGE cbRange = {0,0};
 	result = constantBuffer->Map(0, &cbRange, (void**)&cbuff);
+
+	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
+
+	DirectX::XMFLOAT3 eye(0, 0, -10.f);
+	DirectX::XMFLOAT3 target(0, 0, 0);
+	DirectX::XMFLOAT3 up(0, 1, 0);
+	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), XMLoadFloat3(&target), XMLoadFloat3(&up));
+	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight), 0.1f, 300.f);
+
+	wvp.world = mat;
+	wvp.viewproj = camera * projection;
 	
 	*cbuff = wvp;
+
+	//memcpy(cbuff, &wvp,sizeof(wvp));
 }
 
 void MyDirectX12::CreateRootParameter()
