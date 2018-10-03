@@ -35,7 +35,6 @@ struct t_Vertex {
 struct Cbuffer {
 	DirectX::XMMATRIX world;
 	DirectX::XMMATRIX viewproj;
-	//DIrectX::XMFLOAT3 diffu
 };
 
 
@@ -105,7 +104,6 @@ private:
 
 	//ルートパラメーター
 	D3D12_ROOT_PARAMETER rootParam[2] = {};
-	//D3D12_ROOT_PARAMETER rootParam = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 
 	//テクスチャバッファ
@@ -154,7 +152,7 @@ public:
 	ID3D12GraphicsCommandList3* GetCommandList();
 
 	//デスクリプター
-	void CreateDescriptorHeap();
+	void CreateDescriptorHeapRTV();
 
 	//スワップチェイン
 	void CreateSwapChain();
@@ -179,6 +177,9 @@ public:
 
 	//インデックスバッファ
 	void CreateIndexBuffer();
+
+	//レジスタ系デスクリプター
+	void CreateDescriptorHeapRegister();
 
 	//テクスチャ
 	void CreateTextureBuffer();
