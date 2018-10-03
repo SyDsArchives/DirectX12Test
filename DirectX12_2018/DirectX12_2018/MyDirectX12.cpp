@@ -89,6 +89,7 @@ constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexB
 	MyDirectX12::CreateSwapChain();
 	MyDirectX12::CreateRenderTarget();
 	MyDirectX12::CreateFence();
+	MyDirectX12::LoadPMDModelData();
 	MyDirectX12::CreateVertexBuffer();
 	MyDirectX12::CreateIndexBuffer();
 	MyDirectX12::CreateRootParameter();
@@ -108,21 +109,6 @@ MyDirectX12::~MyDirectX12()
 
 void MyDirectX12::OutLoopDx12()
 {
-	//pmd
-	FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
-
-	fread(&magic, sizeof(magic), 1, miku_pmd);
-	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
-
-	//std::vector<char> pmdvertices(pmddata.vertexNum * vertexSize);
-	//fread(&pmdvertices[0], pmdvertices.size(), 1, miku_pmd);
-
-	/*pmdvertices.resize(pmddata.vertexNum  * vertexSize);
-	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);*/
-	vertex_t.resize(pmddata.vertexNum * vertexSize);
-	fread(&vertex_t[0], vertex_t.size(), 1, miku_pmd);
-
-	fclose(miku_pmd);
 }
 
 void MyDirectX12::InLoopDx12()
@@ -437,10 +423,21 @@ void MyDirectX12::CreateVertexBuffer()
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 		D3D12_HEAP_FLAG_NONE,//指定なし
 		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertex_t.size())),
+		&CD3DX12_RESOURCE_DESC::Buffer(vertex_t.size()),
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&vertexBuffer));
+
+	//result = dev->CreateCommittedResource(
+	//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+	//	D3D12_HEAP_FLAG_NONE,//指定なし
+	//						 //&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
+	//	&CD3DX12_RESOURCE_DESC::Buffer(sizeof(pmddata.vertexNum)),
+	//	D3D12_RESOURCE_STATE_GENERIC_READ,//???
+	//	nullptr,//nullptrで良い
+	//	IID_PPV_ARGS(&vertexBuffer));
+
+	auto a = vertex_t.end();
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
@@ -780,5 +777,24 @@ void MyDirectX12::CreatePiplineState()
 
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
+}
+
+void MyDirectX12::LoadPMDModelData()
+{
+	//pmd
+	FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
+
+	fread(&magic, sizeof(magic), 1, miku_pmd);
+	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
+
+	//std::vector<char> pmdvertices(pmddata.vertexNum * vertexSize);
+	//fread(&pmdvertices[0], pmdvertices.size(), 1, miku_pmd);
+
+	/*pmdvertices.resize(pmddata.vertexNum  * vertexSize);
+	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);*/
+	vertex_t.resize(pmddata.vertexNum * vertexSize);
+	fread(&vertex_t[0], vertex_t.size(), 1, miku_pmd);
+
+	fclose(miku_pmd);
 }
 

@@ -193,8 +193,7 @@ public:
 	//パイプラインステート
 	void CreatePiplineState();
 
-	void CreateModelVertex();
-	void SetModelVertex(std::vector<char> data);
-	std::vector<char> GetModelData();
+	//モデル関連
+	void LoadPMDModelData();
 };
 
