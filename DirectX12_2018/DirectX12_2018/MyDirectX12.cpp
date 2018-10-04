@@ -51,7 +51,7 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 //	unsigned char edgeFlag;
 //};38
 
-char vertexSize = 38;
+unsigned int vertexSize = 38;
 const int screenBufferNum = 2;//画面バッファの数
 
 
@@ -431,7 +431,7 @@ void MyDirectX12::CreateVertexBuffer()
 	//result = dev->CreateCommittedResource(
 	//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 	//	D3D12_HEAP_FLAG_NONE,//指定なし
-	//						 //&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
+	//	//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
 	//	&CD3DX12_RESOURCE_DESC::Buffer(sizeof(pmddata.vertexNum)),
 	//	D3D12_RESOURCE_STATE_GENERIC_READ,//???
 	//	nullptr,//nullptrで良い
@@ -441,19 +441,18 @@ void MyDirectX12::CreateVertexBuffer()
 
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
-	//Vertex* vb = nullptr;
-	//unsigned char* pdata = nullptr;
 	t_Vertex* tv = nullptr;
-
+	
 	result = vertexBuffer->Map(0, &range, (void**)&tv);
-	/*std::copy(std::begin(vertices), std::end(vertices), vb);*/
 	std::copy(vertex_t.begin(), vertex_t.end(), tv);
 	vertexBuffer->Unmap(0, nullptr);
+
+	unsigned int size = vertex_t.size();
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vbView.StrideInBytes = vertexSize;
-	vbView.SizeInBytes = vertex_t.size();
+	vbView.SizeInBytes = size;
 
 	//vbView.StrideInBytes = sizeof(Vertex);
 	//vbView.SizeInBytes = sizeof(vertices);
@@ -792,9 +791,14 @@ void MyDirectX12::LoadPMDModelData()
 
 	/*pmdvertices.resize(pmddata.vertexNum  * vertexSize);
 	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);*/
-	vertex_t.resize(pmddata.vertexNum * vertexSize);
-	fread(&vertex_t[0], vertex_t.size(), 1, miku_pmd);
-
+	vertex_t.resize(pmddata.vertexNum);
+	//auto a = vertex_t.size();
+	for (UINT i = 0; i < pmddata.vertexNum; ++i)
+	{
+		fread(&vertex_t[i], sizeof(t_Vertex) - 1, 1, miku_pmd);
+	}
+	//fread(vertex_t.data(), pmddata.vertexNum, 1, miku_pmd);
+	
 	fclose(miku_pmd);
 }
 
