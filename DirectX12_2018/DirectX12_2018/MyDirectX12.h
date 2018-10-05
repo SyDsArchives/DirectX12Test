@@ -23,6 +23,7 @@ struct PMDData {
 	unsigned int vertexNum;//頂点数
 };
 
+
 struct t_Vertex {
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 nomalVector;
@@ -31,6 +32,7 @@ struct t_Vertex {
 	unsigned char boneWeight;
 	unsigned char edgeFlag;
 };
+
 
 struct Cbuffer {
 	DirectX::XMMATRIX world;
@@ -177,6 +179,9 @@ public:
 
 	//インデックスバッファ
 	void CreateIndexBuffer();
+
+	//シェーダー
+	void CreateShader();
 
 	//レジスタ系デスクリプター
 	void CreateDescriptorHeapRegister();

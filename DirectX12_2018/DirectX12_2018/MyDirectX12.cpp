@@ -80,6 +80,7 @@ constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexB
 	MyDirectX12::CreateConstantBuffer();*/
 
 
+	MyDirectX12::LoadPMDModelData();
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
 	MyDirectX12::CreateCommandQueue();
@@ -89,9 +90,10 @@ constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexB
 	MyDirectX12::CreateSwapChain();
 	MyDirectX12::CreateRenderTarget();
 	MyDirectX12::CreateFence();
-	MyDirectX12::LoadPMDModelData();
+	
 	MyDirectX12::CreateVertexBuffer();
-	MyDirectX12::CreateIndexBuffer();
+	//MyDirectX12::CreateIndexBuffer();
+	MyDirectX12::CreateShader();
 	MyDirectX12::CreateRootParameter();
 	MyDirectX12::CreateRootSignature();
 	MyDirectX12::CreatePiplineState();
@@ -119,7 +121,7 @@ void MyDirectX12::InLoopDx12()
 	*cbuff = wvp;
 
 	//背景色
-	float clearColor[4] = { 1, 0, 1, 1 };
+	float clearColor[4] = { 1, 1, 1, 1 };
 
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
@@ -183,7 +185,7 @@ void MyDirectX12::InLoopDx12()
 	//cmdList->DrawIndexedInstanced(8, 1, 0, 0, 0);
 
 	//頂点のみのモデル描画
-	cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0 );
+	cmdList->DrawInstanced(pmdvertices.size(), 1, 0, 0 );
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -418,12 +420,13 @@ void MyDirectX12::SetScissorRect()
 void MyDirectX12::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
+	unsigned int size = pmdvertices.size();
 
 	result = dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 		D3D12_HEAP_FLAG_NONE,//指定なし
 		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-		&CD3DX12_RESOURCE_DESC::Buffer(vertex_t.size()),
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&vertexBuffer));
@@ -437,17 +440,37 @@ void MyDirectX12::CreateVertexBuffer()
 	//	nullptr,//nullptrで良い
 	//	IID_PPV_ARGS(&vertexBuffer));
 
-	auto a = vertex_t.end();
-
 	//レンジ
 	D3D12_RANGE range = { 0,0 };
-	t_Vertex* tv = nullptr;
-	
-	result = vertexBuffer->Map(0, &range, (void**)&tv);
-	std::copy(vertex_t.begin(), vertex_t.end(), tv);
-	vertexBuffer->Unmap(0, nullptr);
 
-	unsigned int size = vertex_t.size();
+
+	//t_Vertex* tv = nullptr;
+
+	//DirectX::XMFLOAT3 m_pos;
+	//DirectX::XMFLOAT3 m_nomalVec;
+	//DirectX::XMFLOAT2 m_uv;
+	//unsigned short m_boneNum[2];
+	//unsigned char m_boneWeight;
+	//unsigned char m_edgeFlag;
+	//std::vector<t_Vertex>* tv = nullptr;
+	//tv->resize(vertex_t.size());
+	
+	//std::vector<t_Vertex> dummy = vertex_t;
+
+	//unsigned int size = dummy.size();
+	////頂点バッファビュー
+	//vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	//vbView.StrideInBytes = vertexSize;
+	//vbView.SizeInBytes = size;
+
+	//result = vertexBuffer->Map(0, &range, (void**)&tv);
+	//std::copy(dummy.begin(), dummy.end(), tv);
+	//vertexBuffer->Unmap(0, nullptr);
+
+	char* pmdvert = nullptr;
+	result = vertexBuffer->Map(0, nullptr, (void**)&pmdvert);
+	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
+	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
@@ -480,7 +503,11 @@ void MyDirectX12::CreateIndexBuffer()
 	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
 	ibView.SizeInBytes = indices.size() * sizeof(indices[0]) * 4;
+}
 
+void MyDirectX12::CreateShader()
+{
+	HRESULT result = S_OK;
 	//シェーダー
 	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_DEBUG |
 		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShader, nullptr);
@@ -654,15 +681,23 @@ void MyDirectX12::CreateConstantBuffer()
 
 	//定数バッファ用のデータ設定
 	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
-	DirectX::XMFLOAT3 eye(0, 0, -10.f);
+	DirectX::XMFLOAT3 eye(0, 0, -60.f);
 	DirectX::XMFLOAT3 target(0, 0, 0);
 	DirectX::XMFLOAT3 up(0, 1, 0);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), 
 											XMLoadFloat3(&target), 
 											XMLoadFloat3(&up));
+
+	//DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
+	//DirectX::XMVECTOR eye2 = { 0, 0, -60.f };
+	//DirectX::XMVECTOR target2 = { 0, 0, 0 };
+	//DirectX::XMVECTOR up2 = { 0, 2, 0 };
+	//auto camera = DirectX::XMMatrixLookAtLH(eye2,
+	//										target2,
+	//										up2);
 	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, 
 													 aspectRatio, 
-													 0.1f, 
+													 1.f, 
 													 300.f);
 	//定数バッファ用データにセット
 	wvp.world = mat;
@@ -781,24 +816,34 @@ void MyDirectX12::CreatePiplineState()
 void MyDirectX12::LoadPMDModelData()
 {
 	//pmd
-	FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
+	/*FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
 
 	fread(&magic, sizeof(magic), 1, miku_pmd);
 	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
 
-	//std::vector<char> pmdvertices(pmddata.vertexNum * vertexSize);
-	//fread(&pmdvertices[0], pmdvertices.size(), 1, miku_pmd);
-
-	/*pmdvertices.resize(pmddata.vertexNum  * vertexSize);
-	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);*/
 	vertex_t.resize(pmddata.vertexNum);
-	//auto a = vertex_t.size();
+	
 	for (UINT i = 0; i < pmddata.vertexNum; ++i)
 	{
-		fread(&vertex_t[i], sizeof(t_Vertex) - 1, 1, miku_pmd);
+		fread(&vertex_t[i], vertexSize, 1, miku_pmd);
 	}
-	//fread(vertex_t.data(), pmddata.vertexNum, 1, miku_pmd);
 	
-	fclose(miku_pmd);
+	fclose(miku_pmd);*/
+
+
+
+	//pmd
+	FILE* miku_pm = fopen("resource/model/miku/初音ミク.pmd", "rb");
+
+	fread(&magic, sizeof(magic), 1, miku_pm);
+	fread(&pmddata, sizeof(pmddata), 1, miku_pm);
+
+	pmdvertices.resize(pmddata.vertexNum * vertexSize);
+
+	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pm);
+
+	//fread(vertex_t.data(), pmddata.vertexNum, 1, miku_pmd);
+
+	fclose(miku_pm);
 }
 
