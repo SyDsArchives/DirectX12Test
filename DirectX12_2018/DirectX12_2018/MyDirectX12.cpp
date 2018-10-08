@@ -27,7 +27,7 @@
 std::vector<unsigned short> indices = { 0,1,2,1,3,2 };//インデックス(N)
 //std::vector<unsigned short> indices = { 0,1,3,3,2,0 };//インデックス(Z)
 
-//シェーダへ送る情報
+//シェーダへ送る情報(頂点レイアウト)
 D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 	{ "POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 	//{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA ,0},
@@ -93,9 +93,9 @@ constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexB
 	
 	MyDirectX12::CreateVertexBuffer();
 	//MyDirectX12::CreateIndexBuffer();
-	MyDirectX12::CreateShader();
 	MyDirectX12::CreateRootParameter();
 	MyDirectX12::CreateRootSignature();
+	MyDirectX12::CreateShader();
 	MyDirectX12::CreatePiplineState();
 	MyDirectX12::CreateTextureBuffer();
 	MyDirectX12::CreateConstantBuffer();
@@ -123,6 +123,7 @@ void MyDirectX12::InLoopDx12()
 	//背景色
 	float clearColor[4] = { 1, 1, 1, 1 };
 
+	//RTVHandleInclement
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
 
@@ -468,6 +469,7 @@ void MyDirectX12::CreateVertexBuffer()
 	//vertexBuffer->Unmap(0, nullptr);
 
 	char* pmdvert = nullptr;
+	//mapで頂点情報をGPUに送る
 	result = vertexBuffer->Map(0, nullptr, (void**)&pmdvert);
 	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
 	vertexBuffer->Unmap(0, nullptr);
@@ -476,6 +478,9 @@ void MyDirectX12::CreateVertexBuffer()
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
 	vbView.StrideInBytes = vertexSize;
 	vbView.SizeInBytes = size;
+
+	auto a = vertexSize;
+	auto b = size;
 
 	//vbView.StrideInBytes = sizeof(Vertex);
 	//vbView.SizeInBytes = sizeof(vertices);
@@ -643,7 +648,7 @@ void MyDirectX12::CreateConstantBuffer()
 	D3D12_RESOURCE_DESC desc = {};
     desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
     desc.Alignment = 0;
-    desc.Width = (sizeof(Cbuffer) + 0xff)&~0xff;
+    desc.Width = size;
     desc.Height = 1;
     desc.DepthOrArraySize = 1;
     desc.MipLevels = 1;
@@ -815,7 +820,7 @@ void MyDirectX12::CreatePiplineState()
 
 void MyDirectX12::LoadPMDModelData()
 {
-	//pmd
+	//pmdstruct
 	/*FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
 
 	fread(&magic, sizeof(magic), 1, miku_pmd);
@@ -832,7 +837,7 @@ void MyDirectX12::LoadPMDModelData()
 
 
 
-	//pmd
+	//pmdchar
 	FILE* miku_pm = fopen("resource/model/miku/初音ミク.pmd", "rb");
 
 	fread(&magic, sizeof(magic), 1, miku_pm);
@@ -842,7 +847,7 @@ void MyDirectX12::LoadPMDModelData()
 
 	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pm);
 
-	//fread(vertex_t.data(), pmddata.vertexNum, 1, miku_pmd);
+	auto a = pmdvertices.end() - 2;
 
 	fclose(miku_pm);
 }
