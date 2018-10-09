@@ -3,7 +3,6 @@ SamplerState smp:register(s0);
 
 struct Output{
 	float4 svpos:SV_POSITION;
-	float4 pos:POSITION;
 	//float4 color : COLOR;
 	//float2 uv:TEXCOORD;
 };
@@ -21,9 +20,12 @@ Output vs( float4 pos:POSITION/*,float2 uv:TEXCOORD */)
 	Output output;
 	//matrix m = world;
 	//pos = mul(mul(viewproj, m), pos);
-	output.pos = output.svpos = pos;
-
-
+	float4 localpos = pos;
+	float4 worldpos = mul(world, localpos);
+	float4 viewprojpos = mul(viewproj, worldpos);
+	output.svpos = viewprojpos;
+	
+	output.svpos = pos;
 	return output;
 
 	//pos = mul(mat, pos);

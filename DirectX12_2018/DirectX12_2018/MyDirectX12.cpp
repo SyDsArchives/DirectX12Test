@@ -58,28 +58,8 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), angle(3.14 / 2/*1 * (3.14 / 180)*/),m(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr)
+constantBuffer(nullptr), angle(3.14 / 2), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr)
 {
-	/*MyDirectX12::CreateDXGIFactory();
-	MyDirectX12::CreateDevice();
-	MyDirectX12::CreateCommandQueue();
-	MyDirectX12::CreateCommandAllocator();
-	MyDirectX12::CreateCommandList();
-	MyDirectX12::CreateDescriptorHeap();
-	MyDirectX12::CreateSwapChain();
-	MyDirectX12::CreateRenderTarget();
-	MyDirectX12::CreateFence();
-	MyDirectX12::CreateVertexBuffer();
-	MyDirectX12::CreateIndexBuffer();
-	MyDirectX12::CreateTextureBuffer();
-	MyDirectX12::CreateRootParameter();
-	MyDirectX12::CreateRootSignature();
-	MyDirectX12::CreatePiplineState();
-	MyDirectX12::SetViewPort();
-	MyDirectX12::SetScissorRect();
-	MyDirectX12::CreateConstantBuffer();*/
-
-
 	MyDirectX12::LoadPMDModelData();
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -118,7 +98,11 @@ void MyDirectX12::InLoopDx12()
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	*cbuff = wvp;
+	//*cbuff = wvp;
+	/*angle += 5 * (180 / 3.14);
+	wvp.world = DirectX::XMMatrixRotationY(angle);*/
+
+	memcpy(cbuff, &wvp, sizeof(wvp));
 
 	//背景色
 	float clearColor[4] = { 1, 1, 1, 1 };
@@ -131,7 +115,6 @@ void MyDirectX12::InLoopDx12()
 	result = cmdAllocator->Reset();
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
-
 
 	std::vector<std::function<void(void)>> commandlist;
 	commandlist.push_back([]() {std::cout << "SetRTV" << std::endl; });
@@ -150,8 +133,10 @@ void MyDirectX12::InLoopDx12()
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
 
-	//定数バッファのセット
-	//cmdList->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress());
+	cmdList->ResourceBarrier(1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			D3D12_RESOURCE_STATE_PRESENT));
 
 	//シェーダーレジスタ用デスクリプターヒープのセット
 	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
@@ -159,14 +144,14 @@ void MyDirectX12::InLoopDx12()
 	//シェーダーレジスタ用デスクリプターヒープの指定
 	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
 
-	//パイプラインのセット
-	cmdList->SetPipelineState(piplineState);
-
 	//ビューポートのセット
 	cmdList->RSSetViewports(1, &viewport);
 
 	//シザーレクトのセット
 	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	//パイプラインのセット
+	cmdList->SetPipelineState(piplineState);
 
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
@@ -177,6 +162,7 @@ void MyDirectX12::InLoopDx12()
 	//形情報のセット
 	//ラインリスト
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+
 	//四角
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
@@ -186,7 +172,8 @@ void MyDirectX12::InLoopDx12()
 	//cmdList->DrawIndexedInstanced(8, 1, 0, 0, 0);
 
 	//頂点のみのモデル描画
-	cmdList->DrawInstanced(pmdvertices.size(), 1, 0, 0 );
+	cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0);
+	
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -205,6 +192,7 @@ void MyDirectX12::InLoopDx12()
 	swapChain->Present(1, 0);
 	bbindex = swapChain->GetCurrentBackBufferIndex();
 
+	//コマンドの完了を待機
 	WaitWithFence();
 }
 
@@ -421,7 +409,8 @@ void MyDirectX12::SetScissorRect()
 void MyDirectX12::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
-	unsigned int size = pmdvertices.size();
+	auto size = pmdvertices.size();
+	auto stride = vertexSize;
 
 	result = dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
@@ -432,43 +421,7 @@ void MyDirectX12::CreateVertexBuffer()
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&vertexBuffer));
 
-	//result = dev->CreateCommittedResource(
-	//	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
-	//	D3D12_HEAP_FLAG_NONE,//指定なし
-	//	//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-	//	&CD3DX12_RESOURCE_DESC::Buffer(sizeof(pmddata.vertexNum)),
-	//	D3D12_RESOURCE_STATE_GENERIC_READ,//???
-	//	nullptr,//nullptrで良い
-	//	IID_PPV_ARGS(&vertexBuffer));
-
-	//レンジ
-	D3D12_RANGE range = { 0,0 };
-
-
-	//t_Vertex* tv = nullptr;
-
-	//DirectX::XMFLOAT3 m_pos;
-	//DirectX::XMFLOAT3 m_nomalVec;
-	//DirectX::XMFLOAT2 m_uv;
-	//unsigned short m_boneNum[2];
-	//unsigned char m_boneWeight;
-	//unsigned char m_edgeFlag;
-	//std::vector<t_Vertex>* tv = nullptr;
-	//tv->resize(vertex_t.size());
-	
-	//std::vector<t_Vertex> dummy = vertex_t;
-
-	//unsigned int size = dummy.size();
-	////頂点バッファビュー
-	//vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	//vbView.StrideInBytes = vertexSize;
-	//vbView.SizeInBytes = size;
-
-	//result = vertexBuffer->Map(0, &range, (void**)&tv);
-	//std::copy(dummy.begin(), dummy.end(), tv);
-	//vertexBuffer->Unmap(0, nullptr);
-
-	char* pmdvert = nullptr;
+	unsigned char* pmdvert = nullptr;
 	//mapで頂点情報をGPUに送る
 	result = vertexBuffer->Map(0, nullptr, (void**)&pmdvert);
 	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
@@ -476,14 +429,8 @@ void MyDirectX12::CreateVertexBuffer()
 
 	//頂点バッファビュー
 	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = vertexSize;
-	vbView.SizeInBytes = size;
-
-	auto a = vertexSize;
-	auto b = size;
-
-	//vbView.StrideInBytes = sizeof(Vertex);
-	//vbView.SizeInBytes = sizeof(vertices);
+	vbView.StrideInBytes = stride;
+	vbView.SizeInBytes = static_cast<unsigned int>(size);
 }
 
 void MyDirectX12::CreateIndexBuffer()
@@ -611,12 +558,12 @@ void MyDirectX12::CreateTextureBuffer()
 	ExecuteCommand();
 
 	//register用のDescriptorHeapDescの生成
-	D3D12_DESCRIPTOR_HEAP_DESC texDescriptorHeapDesc = {};
-	texDescriptorHeapDesc.NumDescriptors = 2;
-	texDescriptorHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	texDescriptorHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	D3D12_DESCRIPTOR_HEAP_DESC registerHeapDesc = {};
+	registerHeapDesc.NumDescriptors = 2;
+	registerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	registerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
-	result = dev->CreateDescriptorHeap(&texDescriptorHeapDesc, IID_PPV_ARGS(&rgstDescHeap));
+	result = dev->CreateDescriptorHeap(&registerHeapDesc, IID_PPV_ARGS(&rgstDescHeap));
 
 	//シェーダリソースビュー
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
@@ -629,6 +576,36 @@ void MyDirectX12::CreateTextureBuffer()
 	srvHandle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 
 	dev->CreateShaderResourceView(textureBuffer, &srvDesc, srvHandle);
+}
+
+void MyDirectX12::LoadPMDModelData()
+{
+	//pmdstruct
+	/*FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
+
+	fread(&magic, sizeof(magic), 1, miku_pmd);
+	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
+
+	vertex_t.resize(pmddata.vertexNum);
+
+	for (UINT i = 0; i < pmddata.vertexNum; ++i)
+	{
+	fread(&vertex_t[i], vertexSize, 1, miku_pmd);
+	}
+
+	fclose(miku_pmd);*/
+
+	//pmdchar
+	FILE* miku_pm = fopen("resource/model/miku/初音ミク.pmd", "rb");
+
+	fread(&magic, sizeof(magic), 1, miku_pm);
+	fread(&pmddata, sizeof(pmddata), 1, miku_pm);
+
+	pmdvertices.resize(pmddata.vertexNum * vertexSize);
+
+	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pm);
+
+	fclose(miku_pm);
 }
 
 void MyDirectX12::CreateConstantBuffer()
@@ -675,46 +652,40 @@ void MyDirectX12::CreateConstantBuffer()
 	//定数バッファの生成
 	dev->CreateConstantBufferView(&constdesc, handle);
 
-	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	
+	//アスペクト比の算出
+	auto aspectRatio = static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight);
+	//定数バッファ用のデータ設定
+	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
+	DirectX::XMFLOAT3 eye(0, 15, -60.f);
+	DirectX::XMFLOAT3 target(0, 10, 0);
+	DirectX::XMFLOAT3 up(0, 1, 0);
+	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),
+		XMLoadFloat3(&target),
+		XMLoadFloat3(&up));
+	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV4,
+		aspectRatio,
+		1.f,
+		300.f);
 
 	//マップする(定数バッファはアプリケーション終了までunmapを行わない)
 	D3D12_RANGE cbRange = {0,0};
 	result = constantBuffer->Map(0, &cbRange, (void**)&cbuff);
 
-	//アスペクト比の算出
-	auto aspectRatio = static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight);
-
-	//定数バッファ用のデータ設定
-	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
-	DirectX::XMFLOAT3 eye(0, 0, -60.f);
-	DirectX::XMFLOAT3 target(0, 0, 0);
-	DirectX::XMFLOAT3 up(0, 1, 0);
-	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye), 
-											XMLoadFloat3(&target), 
-											XMLoadFloat3(&up));
-
-	//DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
-	//DirectX::XMVECTOR eye2 = { 0, 0, -60.f };
-	//DirectX::XMVECTOR target2 = { 0, 0, 0 };
-	//DirectX::XMVECTOR up2 = { 0, 2, 0 };
-	//auto camera = DirectX::XMMatrixLookAtLH(eye2,
-	//										target2,
-	//										up2);
-	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2, 
-													 aspectRatio, 
-													 1.f, 
-													 300.f);
 	//定数バッファ用データにセット
 	wvp.world = mat;
 	wvp.viewproj = camera * projection;
 	
 	//定数バッファ用データの更新
-	*cbuff = wvp;
+	//*cbuff = wvp;
+	memcpy(cbuff, &wvp, sizeof(wvp));
 }
 
 void MyDirectX12::CreateRootParameter()
 {
-	//サンプラー s[0]
+	//サンプラー s[0]D3D12_FILTER_MIN_MAG_MIP_LINEAR,D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
 	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(U方向)
 	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(V方向)
@@ -740,7 +711,11 @@ void MyDirectX12::CreateRootParameter()
 	descriptorRange[1].BaseShaderRegister = 0;//レジスタ番号
 	descriptorRange[1].NumDescriptors = 1;
 	descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-
+	////b[1]
+	//descriptorRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
+	//descriptorRange[1].BaseShaderRegister = 1;//レジスタ番号
+	//descriptorRange[1].NumDescriptors = 1;
+	//descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	//ルートパラメーター
 	//t[0]
 	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -752,6 +727,11 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
 	rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
 	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	////b[1]
+	//rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	//rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
+	//rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[2];//対応するレンジへのポインタ
+	//rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 }
 
@@ -769,7 +749,7 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
 	rsDesc.NumStaticSamplers = 1;//サンプラの合計数
 	rsDesc.pStaticSamplers = &samplerDesc;
-	rsDesc.NumParameters = 2;//テクスチャと定数パラメータの合計数
+	rsDesc.NumParameters = _countof(rootParam);//テクスチャと定数パラメータの合計数
 	rsDesc.pParameters = rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
@@ -790,7 +770,7 @@ void MyDirectX12::CreatePiplineState()
 	//ルートシグネチャと頂点レイアウト
 	gpsDesc.pRootSignature = rootSignature;
 	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
-	gpsDesc.InputLayout.NumElements = sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
+	gpsDesc.InputLayout.NumElements = _countof(inputLayouts);//sizeof(inputLayouts) / sizeof(D3D12_INPUT_ELEMENT_DESC);
 	//シェーダ
 	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader);
 	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader);
@@ -816,39 +796,5 @@ void MyDirectX12::CreatePiplineState()
 
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
-}
-
-void MyDirectX12::LoadPMDModelData()
-{
-	//pmdstruct
-	/*FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
-
-	fread(&magic, sizeof(magic), 1, miku_pmd);
-	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
-
-	vertex_t.resize(pmddata.vertexNum);
-	
-	for (UINT i = 0; i < pmddata.vertexNum; ++i)
-	{
-		fread(&vertex_t[i], vertexSize, 1, miku_pmd);
-	}
-	
-	fclose(miku_pmd);*/
-
-
-
-	//pmdchar
-	FILE* miku_pm = fopen("resource/model/miku/初音ミク.pmd", "rb");
-
-	fread(&magic, sizeof(magic), 1, miku_pm);
-	fread(&pmddata, sizeof(pmddata), 1, miku_pm);
-
-	pmdvertices.resize(pmddata.vertexNum * vertexSize);
-
-	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pm);
-
-	auto a = pmdvertices.end() - 2;
-
-	fclose(miku_pm);
 }
 

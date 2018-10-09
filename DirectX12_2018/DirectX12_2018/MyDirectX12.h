@@ -46,7 +46,6 @@ private:
 	unsigned int bbindex;
 	int descriptorSizeRTV;
 	float angle;
-	DirectX::XMMATRIX* m;
 
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
@@ -128,7 +127,7 @@ private:
 	//PMDŠÖ˜A
 	char magic[3];
 	PMDData pmddata = {};
-	std::vector<char> pmdvertices;
+	std::vector<unsigned char> pmdvertices;
 	std::vector<t_Vertex> vertex_t;
 
 public:
