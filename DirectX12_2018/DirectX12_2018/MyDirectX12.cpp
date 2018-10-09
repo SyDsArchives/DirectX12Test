@@ -677,6 +677,8 @@ void MyDirectX12::CreateConstantBuffer()
 	//定数バッファ用データにセット
 	wvp.world = mat;
 	wvp.viewproj = camera * projection;
+	wvp.diffuse = DirectX::XMFLOAT3(0, 0, 0);
+	wvp.existtex = true;
 	
 	//定数バッファ用データの更新
 	//*cbuff = wvp;

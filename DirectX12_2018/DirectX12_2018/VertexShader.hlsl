@@ -11,6 +11,8 @@ cbuffer mat:register(b0)
 {
 	float4x4 world;
 	float4x4 viewproj;
+	float3 diffuse;
+	bool existtex;
 }
 
 

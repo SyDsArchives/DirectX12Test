@@ -37,6 +37,8 @@ struct t_Vertex {
 struct Cbuffer {
 	DirectX::XMMATRIX world;
 	DirectX::XMMATRIX viewproj;
+	DirectX::XMFLOAT3 diffuse;
+	bool existtex;
 };
 
 
