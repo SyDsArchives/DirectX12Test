@@ -77,6 +77,7 @@ constantBuffer(nullptr), angle(3.14 / 2), vertexBuffer(nullptr), vertexShader(nu
 	MyDirectX12::CreateRootSignature();
 	MyDirectX12::CreateShader();
 	MyDirectX12::CreatePiplineState();
+	MyDirectX12::CreateDescriptorHeapRegister();
 	MyDirectX12::CreateTextureBuffer();
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::SetViewPort();
@@ -98,10 +99,10 @@ void MyDirectX12::InLoopDx12()
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	//*cbuff = wvp;
 	/*angle += 5 * (180 / 3.14);
 	wvp.world = DirectX::XMMatrixRotationY(angle);*/
 
+	wvp.world = DirectX::XMMatrixIdentity();
 	memcpy(cbuff, &wvp, sizeof(wvp));
 
 	//背景色
@@ -133,6 +134,12 @@ void MyDirectX12::InLoopDx12()
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
 
+	//頂点バッファのセット
+	cmdList->IASetVertexBuffers(0, 1, &vbView);
+
+	//インデックスバッファのセット
+	//cmdList->IASetIndexBuffer(&ibView);
+
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -141,7 +148,7 @@ void MyDirectX12::InLoopDx12()
 	//シェーダーレジスタ用デスクリプターヒープのセット
 	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
 
-	//シェーダーレジスタ用デスクリプターヒープの指定
+	//シェーダーレジスタ用デスクリプターテーブルの指定
 	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
 
 	//ビューポートのセット
@@ -152,12 +159,6 @@ void MyDirectX12::InLoopDx12()
 
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
-
-	//頂点バッファのセット
-	cmdList->IASetVertexBuffers(0, 1, &vbView);
-
-	//インデックスバッファのセット
-	//cmdList->IASetIndexBuffer(&ibView);
 
 	//形情報のセット
 	//ラインリスト
@@ -406,57 +407,6 @@ void MyDirectX12::SetScissorRect()
 	scissorRect.bottom = WindowHeight;
 }
 
-void MyDirectX12::CreateVertexBuffer()
-{
-	HRESULT result = S_OK;
-	auto size = pmdvertices.size();
-	auto stride = vertexSize;
-
-	result = dev->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
-		D3D12_HEAP_FLAG_NONE,//指定なし
-		//&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
-		&CD3DX12_RESOURCE_DESC::Buffer(size),
-		D3D12_RESOURCE_STATE_GENERIC_READ,//???
-		nullptr,//nullptrで良い
-		IID_PPV_ARGS(&vertexBuffer));
-
-	unsigned char* pmdvert = nullptr;
-	//mapで頂点情報をGPUに送る
-	result = vertexBuffer->Map(0, nullptr, (void**)&pmdvert);
-	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
-	vertexBuffer->Unmap(0, nullptr);
-
-	//頂点バッファビュー
-	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
-	vbView.StrideInBytes = stride;
-	vbView.SizeInBytes = static_cast<unsigned int>(size);
-}
-
-void MyDirectX12::CreateIndexBuffer()
-{
-	HRESULT result = S_OK;
-
-	ID3D12Resource* indexBuffer = nullptr;
-	result = dev->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
-		D3D12_HEAP_FLAG_NONE,//指定なし
-		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0]) * 4),//サイズ
-		D3D12_RESOURCE_STATE_GENERIC_READ,//???
-		nullptr,//nullptrで良い
-		IID_PPV_ARGS(&indexBuffer));
-
-	unsigned short* idxdata = nullptr;
-	D3D12_RANGE indexRange = { 0,0 };
-	result = indexBuffer->Map(0, &indexRange, (void**)&idxdata);
-	std::copy(indices.begin(), indices.end(), idxdata);
-	indexBuffer->Unmap(0, nullptr);
-
-	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
-	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
-	ibView.SizeInBytes = indices.size() * sizeof(indices[0]) * 4;
-}
-
 void MyDirectX12::CreateShader()
 {
 	HRESULT result = S_OK;
@@ -465,6 +415,18 @@ void MyDirectX12::CreateShader()
 		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShader, nullptr);
 	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_DEBUG |
 		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShader, nullptr);
+}
+
+void MyDirectX12::CreateDescriptorHeapRegister()
+{
+	HRESULT result = S_OK;
+	//registerのCBV,SRV,UAV用のDescriptorHeapDescの生成
+	D3D12_DESCRIPTOR_HEAP_DESC registerHeapDesc = {};
+	registerHeapDesc.NumDescriptors = 2;
+	registerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	registerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	result = dev->CreateDescriptorHeap(&registerHeapDesc, IID_PPV_ARGS(&rgstDescHeap));
 }
 
 void MyDirectX12::CreateTextureBuffer()
@@ -557,14 +519,6 @@ void MyDirectX12::CreateTextureBuffer()
 	cmdList->Close();
 	ExecuteCommand();
 
-	//register用のDescriptorHeapDescの生成
-	D3D12_DESCRIPTOR_HEAP_DESC registerHeapDesc = {};
-	registerHeapDesc.NumDescriptors = 2;
-	registerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	registerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-	result = dev->CreateDescriptorHeap(&registerHeapDesc, IID_PPV_ARGS(&rgstDescHeap));
-
 	//シェーダリソースビュー
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -608,6 +562,58 @@ void MyDirectX12::LoadPMDModelData()
 	fclose(miku_pm);
 }
 
+void MyDirectX12::CreateVertexBuffer()
+{
+	HRESULT result = S_OK;
+	auto size = pmdvertices.size();
+	auto stride = vertexSize;
+
+	result = dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+		D3D12_HEAP_FLAG_NONE,//指定なし
+							 //&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
+		D3D12_RESOURCE_STATE_GENERIC_READ,//???
+		nullptr,//nullptrで良い
+		IID_PPV_ARGS(&vertexBuffer));
+
+	unsigned char* pmdvert = nullptr;
+	//mapで頂点情報をGPUに送る
+	result = vertexBuffer->Map(0, nullptr, (void**)(&pmdvert));
+	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
+	vertexBuffer->Unmap(0, nullptr);
+
+	//頂点バッファビュー
+	vbView.BufferLocation = vertexBuffer->GetGPUVirtualAddress();
+	vbView.SizeInBytes = static_cast<unsigned int>(size);
+	vbView.StrideInBytes = stride;
+	
+}
+
+void MyDirectX12::CreateIndexBuffer()
+{
+	HRESULT result = S_OK;
+
+	ID3D12Resource* indexBuffer = nullptr;
+	result = dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
+		D3D12_HEAP_FLAG_NONE,//指定なし
+		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0]) * 4),//サイズ
+		D3D12_RESOURCE_STATE_GENERIC_READ,//???
+		nullptr,//nullptrで良い
+		IID_PPV_ARGS(&indexBuffer));
+
+	unsigned short* idxdata = nullptr;
+	D3D12_RANGE indexRange = { 0,0 };
+	result = indexBuffer->Map(0, &indexRange, (void**)&idxdata);
+	std::copy(indices.begin(), indices.end(), idxdata);
+	indexBuffer->Unmap(0, nullptr);
+
+	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
+	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
+	ibView.SizeInBytes = indices.size() * sizeof(indices[0]) * 4;
+}
+
 void MyDirectX12::CreateConstantBuffer()
 {
 	HRESULT result = S_OK;
@@ -643,46 +649,45 @@ void MyDirectX12::CreateConstantBuffer()
 		nullptr,
 		IID_PPV_ARGS(&constantBuffer));
 
+	//マップする(定数バッファはアプリケーション終了までunmapを行わない)
+	result = constantBuffer->Map(0, nullptr, (void**)&cbuff);
+
 	//定数バッファビューの設定
 	D3D12_CONSTANT_BUFFER_VIEW_DESC constdesc = {};
 	constdesc.BufferLocation = constantBuffer->GetGPUVirtualAddress();
 	constdesc.SizeInBytes = size;
-	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 
+	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	handle.ptr += h_size;
 	//定数バッファの生成
 	dev->CreateConstantBufferView(&constdesc, handle);
 
-	//handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	
 	//アスペクト比の算出
 	auto aspectRatio = static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight);
+	
 	//定数バッファ用のデータ設定
-	DirectX::XMMATRIX mat = DirectX::XMMatrixIdentity();
-	DirectX::XMFLOAT3 eye(0, 15, -60.f);
-	DirectX::XMFLOAT3 target(0, 10, 0);
-	DirectX::XMFLOAT3 up(0, 1, 0);
+	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
+	DirectX::XMFLOAT3 eye(0.f, 15.f, -35.f);
+	DirectX::XMFLOAT3 target(0.f, 10.f, 0.f);
+	DirectX::XMFLOAT3 up(0.f, 1.f, 0.f);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),
 		XMLoadFloat3(&target),
 		XMLoadFloat3(&up));
 	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV4,
 		aspectRatio,
 		1.f,
-		300.f);
-
-	//マップする(定数バッファはアプリケーション終了までunmapを行わない)
-	D3D12_RANGE cbRange = {0,0};
-	result = constantBuffer->Map(0, &cbRange, (void**)&cbuff);
+		1000.f);
 
 	//定数バッファ用データにセット
-	wvp.world = mat;
+	wvp.world = world;
 	wvp.viewproj = camera * projection;
 	wvp.diffuse = DirectX::XMFLOAT3(0, 0, 0);
 	wvp.existtex = true;
 	
 	//定数バッファ用データの更新
 	//*cbuff = wvp;
-	memcpy(cbuff, &wvp, sizeof(wvp));
+	memcpy(cbuff, &wvp, sizeof(Cbuffer));
 }
 
 void MyDirectX12::CreateRootParameter()
@@ -701,6 +706,7 @@ void MyDirectX12::CreateRootParameter()
 	samplerDesc.RegisterSpace = 0;
 	samplerDesc.MaxAnisotropy = 0;//.Filter が Anisotropy の時のみ有効
 	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+
 
 	//レンジ
 	//t[0]
