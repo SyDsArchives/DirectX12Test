@@ -118,7 +118,7 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[2] = {};
+	D3D12_ROOT_PARAMETER rootParam[1] = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 
 	//テクスチャバッファ

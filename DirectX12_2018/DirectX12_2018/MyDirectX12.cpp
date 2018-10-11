@@ -191,10 +191,11 @@ void MyDirectX12::InLoopDx12()
 	ExecuteCommand();
 
 	swapChain->Present(1, 0);
-	bbindex = swapChain->GetCurrentBackBufferIndex();
-
+	
 	//コマンドの完了を待機
 	WaitWithFence();
+
+	bbindex = swapChain->GetCurrentBackBufferIndex();
 }
 
 void MyDirectX12::ExecuteCommand()
@@ -688,12 +689,12 @@ void MyDirectX12::CreateConstantBuffer()
 	
 	//定数バッファ用データの更新
 	//*cbuff = wvp;
-	memcpy(cbuff, &wvp, sizeof(Cbuffer));
+	memcpy(cbuff, &wvp, sizeof(wvp));
 }
 
 void MyDirectX12::CreateRootParameter()
 {
-	//サンプラー s[0]D3D12_FILTER_MIN_MAG_MIP_LINEAR,D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT
+	//サンプラー s[0]
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
 	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(U方向)
 	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(V方向)
@@ -720,28 +721,18 @@ void MyDirectX12::CreateRootParameter()
 	descriptorRange[1].BaseShaderRegister = 0;//レジスタ番号
 	descriptorRange[1].NumDescriptors = 1;
 	descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-	////b[1]
-	//descriptorRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
-	//descriptorRange[1].BaseShaderRegister = 1;//レジスタ番号
-	//descriptorRange[1].NumDescriptors = 1;
-	//descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	//ルートパラメーター
 	//t[0]
 	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[0].DescriptorTable.NumDescriptorRanges = 1;
-	rootParam[0].DescriptorTable.pDescriptorRanges = &descriptorRange[0];//対応するレンジへのポインタ
-	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+	rootParam[0].DescriptorTable.NumDescriptorRanges = 2;
+	rootParam[0].DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	//b[0]
-	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
-	rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
-	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	////b[1]
 	//rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	//rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
-	//rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[2];//対応するレンジへのポインタ
+	//rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
 	//rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
 }
 
 void MyDirectX12::CreateRootSignature()
