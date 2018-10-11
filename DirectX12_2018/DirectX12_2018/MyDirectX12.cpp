@@ -3,6 +3,7 @@
 #include "d3dx12.h"
 #include <iostream>
 
+
 #include "DirectXTex.h"
 
 #pragma comment(lib,"d3d12.lib")
@@ -51,7 +52,7 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 //	unsigned char edgeFlag;
 //};38
 
-unsigned int vertexSize = 38;
+unsigned int vertexSize = sizeof(PMDVertex);
 const int screenBufferNum = 2;//画面バッファの数
 
 
@@ -175,7 +176,6 @@ void MyDirectX12::InLoopDx12()
 	//頂点のみのモデル描画
 	cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0);
 	
-
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -534,38 +534,39 @@ void MyDirectX12::CreateTextureBuffer()
 
 void MyDirectX12::LoadPMDModelData()
 {
-	//pmdstruct
-	/*FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
+	//pmd(MyVectorStruct)
+	FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
 
 	fread(&magic, sizeof(magic), 1, miku_pmd);
 	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
 
-	vertex_t.resize(pmddata.vertexNum);
+	pmdvertex.resize(pmddata.vertexNum);
 
 	for (UINT i = 0; i < pmddata.vertexNum; ++i)
 	{
-	fread(&vertex_t[i], vertexSize, 1, miku_pmd);
+		fread(&pmdvertex[i], sizeof(PMDVertex), 1, miku_pmd);
 	}
 
-	fclose(miku_pmd);*/
+	fclose(miku_pmd);
 
-	//pmdchar
-	FILE* miku_pm = fopen("resource/model/miku/初音ミク.pmd", "rb");
 
-	fread(&magic, sizeof(magic), 1, miku_pm);
-	fread(&pmddata, sizeof(pmddata), 1, miku_pm);
+	////pmd(char)
+	//FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
 
-	pmdvertices.resize(pmddata.vertexNum * vertexSize);
+	//fread(&magic, sizeof(magic), 1, miku_pmd);
+	//fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
 
-	fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pm);
+	//pmdvertices.resize(pmddata.vertexNum * vertexSize);
 
-	fclose(miku_pm);
+	//fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);
+
+	//fclose(miku_pmd);
 }
 
 void MyDirectX12::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
-	auto size = pmdvertices.size();
+	auto size = pmdvertex.size() * vertexSize;
 	auto stride = vertexSize;
 
 	result = dev->CreateCommittedResource(
@@ -577,10 +578,10 @@ void MyDirectX12::CreateVertexBuffer()
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&vertexBuffer));
 
-	unsigned char* pmdvert = nullptr;
+	PMDVertex* pmdvert = nullptr;
 	//mapで頂点情報をGPUに送る
 	result = vertexBuffer->Map(0, nullptr, (void**)(&pmdvert));
-	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
+	std::copy(pmdvertex.begin(), pmdvertex.end(), pmdvert);
 	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー

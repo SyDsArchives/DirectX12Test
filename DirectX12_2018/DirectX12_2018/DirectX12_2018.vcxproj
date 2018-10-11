@@ -137,6 +137,7 @@
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="MyDirectX12.h" />
     <ClInclude Include="Geometory.h" />
+    <ClInclude Include="MyVector_2Dor3D.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl">

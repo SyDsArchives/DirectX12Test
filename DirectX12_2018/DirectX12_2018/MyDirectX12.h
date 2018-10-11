@@ -6,6 +6,7 @@
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
+#include "MyVector_2Dor3D.h"
 
 #include <vector>
 #include <functional>
@@ -23,7 +24,7 @@ struct PMDData {
 	unsigned int vertexNum;//í∏ì_êî
 };
 
-
+//DirectXMath
 struct t_Vertex {
 	DirectX::XMFLOAT3 pos;
 	DirectX::XMFLOAT3 nomalVector;
@@ -33,6 +34,18 @@ struct t_Vertex {
 	unsigned char edgeFlag;
 };
 
+//MyVector
+#pragma pack(1)
+struct PMDVertex {
+	Vector3f pos;
+	Vector3f nomalVector;
+	Vector2f uv;
+	unsigned short boneNum[2];
+	unsigned char boneWeight;
+	unsigned char edgeFlag;
+};
+#pragma pack()
+
 
 struct Cbuffer {
 	DirectX::XMMATRIX world;
@@ -40,7 +53,6 @@ struct Cbuffer {
 	DirectX::XMFLOAT3 diffuse;
 	bool existtex;
 };
-
 
 class MyDirectX12
 {
@@ -131,6 +143,8 @@ private:
 	PMDData pmddata = {};
 	std::vector<unsigned char> pmdvertices;
 	std::vector<t_Vertex> vertex_t;
+	std::vector<PMDVertex> pmdvertex;
+
 
 public:
 	MyDirectX12(HWND _hwnd);
