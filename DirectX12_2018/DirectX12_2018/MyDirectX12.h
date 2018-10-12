@@ -87,14 +87,19 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
 	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
 
-	//VertexBuffer
+	//頂点バッファ
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
 	ID3D12Resource* vertexBuffer;
 
-	//indexBuffer
+	//インデックスバッファ
 	D3D12_INDEX_BUFFER_VIEW ibView = {};
 	ID3DBlob* vertexShader;
 	ID3DBlob* pixelShader;
+
+	//深度バッファ
+	D3D12_DEPTH_STENCIL_VIEW_DESC dbView = {};
+	ID3D12Resource* depthBuffer;
+	ID3D12DescriptorHeap* descriptorHeapDSB;
 
 	//ルートシグネチャ
 	ID3D12RootSignature* rootSignature;
@@ -189,12 +194,15 @@ public:
 	//シザーレクト
 	void SetScissorRect();
 	
-	//バーテックスバッファ
+	//頂点バッファ
 	void CreateVertexBuffer();
 
 	//インデックスバッファ
 	void CreateIndexBuffer();
 
+	//深度バッファ
+	void CreateDepthBuffer();
+	
 	//シェーダー
 	void CreateShader();
 

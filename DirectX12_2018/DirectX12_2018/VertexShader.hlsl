@@ -20,6 +20,8 @@ cbuffer mat:register(b0)
 Output vs( float4 pos:POSITION/*,float2 uv:TEXCOORD */)
 {
 	Output output;
+
+	output.svpos = pos;
 	//matrix m = world;
 	//pos = mul(mul(viewproj, m), pos);
 	float4 localpos = pos;
@@ -27,7 +29,6 @@ Output vs( float4 pos:POSITION/*,float2 uv:TEXCOORD */)
 	float4 viewprojpos = mul(viewproj, worldpos);
 	output.svpos = viewprojpos;
 	
-	output.svpos = pos;
 	return output;
 
 	//pos = mul(mat, pos);

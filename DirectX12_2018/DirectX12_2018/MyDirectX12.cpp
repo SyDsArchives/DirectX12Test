@@ -59,7 +59,8 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), angle(3.14 / 2), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr)
+constantBuffer(nullptr), angle(3.14 / 2), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr),depthBuffer(nullptr),
+descriptorHeapDSB(nullptr)
 {
 	MyDirectX12::LoadPMDModelData();
 	MyDirectX12::CreateDXGIFactory();
@@ -74,6 +75,7 @@ constantBuffer(nullptr), angle(3.14 / 2), vertexBuffer(nullptr), vertexShader(nu
 	
 	MyDirectX12::CreateVertexBuffer();
 	//MyDirectX12::CreateIndexBuffer();
+	MyDirectX12::CreateDepthBuffer();
 	MyDirectX12::CreateRootParameter();
 	MyDirectX12::CreateRootSignature();
 	MyDirectX12::CreateShader();
@@ -113,6 +115,9 @@ void MyDirectX12::InLoopDx12()
 	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
 
+	//DSV
+	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+
 	//アロケータリセット
 	result = cmdAllocator->Reset();
 	//リストリセット
@@ -126,14 +131,18 @@ void MyDirectX12::InLoopDx12()
 	commandlist.push_back([]() {std::cout << "Close" << std::endl; });
 	std::cout << "3" << std::endl;
 
+	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
 	//レンダーターゲットのセット
-	//レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &heapStartCPU, false, nullptr);
 	//クリア
 	cmdList->ClearRenderTargetView(descriptorHandle, clearColor, 0, nullptr);
+	//レンダーターゲット設定
+	cmdList->OMSetRenderTargets(1, &heapStartCPU, true, &handleDSV);
 
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
+
+	//cmdList->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress());
 
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
@@ -170,8 +179,6 @@ void MyDirectX12::InLoopDx12()
 
 	//三角形描画
 	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);//頂点情報のみでの描画
-
-	//cmdList->DrawIndexedInstanced(8, 1, 0, 0, 0);
 
 	//頂点のみのモデル描画
 	cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0);
@@ -573,7 +580,6 @@ void MyDirectX12::CreateVertexBuffer()
 	result = dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 		D3D12_HEAP_FLAG_NONE,//指定なし
-							 //&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),//サイズ
 		&CD3DX12_RESOURCE_DESC::Buffer(size),
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
@@ -614,6 +620,60 @@ void MyDirectX12::CreateIndexBuffer()
 	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
 	ibView.SizeInBytes = indices.size() * sizeof(indices[0]) * 4;
+}
+
+void MyDirectX12::CreateDepthBuffer()
+{
+	HRESULT result = S_OK;
+
+	//バッファー生成
+	D3D12_RESOURCE_DESC descDepth = {};
+	descDepth.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	descDepth.Width = WindowWidth;
+	descDepth.Height = WindowHeight;
+	descDepth.DepthOrArraySize = 1;
+	descDepth.MipLevels = 0;
+	descDepth.Format = DXGI_FORMAT_R32_TYPELESS;
+	descDepth.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	descDepth.SampleDesc.Count = 1;
+	descDepth.SampleDesc.Quality = 0;
+	descDepth.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+	D3D12_HEAP_PROPERTIES depthProperties = {};
+	depthProperties.Type = D3D12_HEAP_TYPE_DEFAULT;
+	depthProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	depthProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	depthProperties.CreationNodeMask = 0;
+	depthProperties.VisibleNodeMask = 0;
+
+	D3D12_CLEAR_VALUE depthClearValue = {};
+	depthClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+	depthClearValue.DepthStencil.Depth = 1.f;
+	depthClearValue.DepthStencil.Stencil = 0;
+
+	result = dev->CreateCommittedResource(&depthProperties,
+										 D3D12_HEAP_FLAG_NONE,
+										 &descDepth,
+										 D3D12_RESOURCE_STATE_DEPTH_WRITE,
+										 &depthClearValue,
+										 IID_PPV_ARGS(&depthBuffer));
+
+	//深度バッファ用デスクリプターの生成
+	D3D12_DESCRIPTOR_HEAP_DESC descDescriptorHeapDSB = {};
+	descDescriptorHeapDSB.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+	descDescriptorHeapDSB.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descDescriptorHeapDSB.NumDescriptors = 1;
+	descDescriptorHeapDSB.NodeMask = 0;
+
+	result = dev->CreateDescriptorHeap(&descDescriptorHeapDSB, IID_PPV_ARGS(&descriptorHeapDSB));
+
+	//深度バッファビューの生成
+	dbView.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+	dbView.Format = DXGI_FORMAT_D32_FLOAT;
+	dbView.Texture2D.MipSlice = 0;
+
+	dev->CreateDepthStencilView(depthBuffer,&dbView,descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart());
+
 }
 
 void MyDirectX12::CreateConstantBuffer()
@@ -670,13 +730,13 @@ void MyDirectX12::CreateConstantBuffer()
 	
 	//定数バッファ用のデータ設定
 	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
-	DirectX::XMFLOAT3 eye(0.f, 15.f, -35.f);
+	DirectX::XMFLOAT3 eye(0.f, 0.f, -35.f);
 	DirectX::XMFLOAT3 target(0.f, 10.f, 0.f);
 	DirectX::XMFLOAT3 up(0.f, 1.f, 0.f);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),
 		XMLoadFloat3(&target),
 		XMLoadFloat3(&up));
-	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV4,
+	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2,
 		aspectRatio,
 		1.f,
 		1000.f);
@@ -780,11 +840,11 @@ void MyDirectX12::CreatePiplineState()
 	gpsDesc.NumRenderTargets = 1;
 	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;//一致しておく必要がある
 	//深度ステンシル
-	gpsDesc.DepthStencilState.DepthEnable = false;//あとで
-	gpsDesc.DepthStencilState.StencilEnable = false;//あとで
-	//gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
-	//gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;//DSV必須
-	//gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;//あとで
+	gpsDesc.DepthStencilState.DepthEnable = true;
+	gpsDesc.DepthStencilState.StencilEnable = false;
+	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;//DSV必須
+	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 
 	//その他
 	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
