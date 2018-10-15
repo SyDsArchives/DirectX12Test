@@ -3,7 +3,7 @@ SamplerState smp:register(s0);
 
 struct Output{
 	float4 svpos:SV_POSITION;
-	//float4 color : COLOR;
+	float4 normal:NORMAL;
 	//float2 uv:TEXCOORD;
 };
 
@@ -17,7 +17,7 @@ cbuffer mat:register(b0)
 
 
 //頂点シェーダ
-Output vs( float4 pos:POSITION/*,float2 uv:TEXCOORD */)
+Output vs( float4 pos:POSITION,float4 normal:NORMAL)
 {
 	Output output;
 
@@ -28,6 +28,8 @@ Output vs( float4 pos:POSITION/*,float2 uv:TEXCOORD */)
 	float4 worldpos = mul(world, localpos);
 	float4 viewprojpos = mul(viewproj, worldpos);
 	output.svpos = viewprojpos;
+
+	output.normal = normal;
 	
 	return output;
 
@@ -39,8 +41,8 @@ Output vs( float4 pos:POSITION/*,float2 uv:TEXCOORD */)
 //ピクセルシェーダ
 float4 ps(Output output):SV_Target
 {
-	//return float4(output.uv.x,output.uv.y,1,1);
-	//return tex.Sample(smp,output.uv).rgba;
-	return float4(0,0,0,1);
-	//return float4(smp,0,1);
+	float3 light = float3(-1, 1, -1);
+	light = normalize(light);
+	float brightness = dot(output.normal, light);
+	return float4(brightness, brightness, brightness, 1);
 }

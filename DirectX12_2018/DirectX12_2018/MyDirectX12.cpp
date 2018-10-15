@@ -12,55 +12,20 @@
 
 #pragma comment(lib,"DirectXTex.lib")
 
-//三角
-//Vertex vertices[] = { { { 0.0f,0.7f,0.0f } },
-//					{ { 0.4f,-0.5f,0.0f } },
-//					{ { -0.4f,-0.5f,0.0f } } };
-
-//四角
-//Vertex vertices[] = {
-//	DirectX::XMFLOAT3(-0.5f,-0.9f,0.f),DirectX::XMFLOAT2(0,1),
-//	DirectX::XMFLOAT3(-0.5f,0.9f,0.f),DirectX::XMFLOAT2(0,0),
-//	DirectX::XMFLOAT3(0.5f,-0.9f,0.f),DirectX::XMFLOAT2(1,1),
-//	DirectX::XMFLOAT3(0.5f,0.9f,0.f),DirectX::XMFLOAT2(1,0),
-//};
-
-std::vector<unsigned short> indices = { 0,1,2,1,3,2 };//インデックス(N)
-//std::vector<unsigned short> indices = { 0,1,3,3,2,0 };//インデックス(Z)
-
 //シェーダへ送る情報(頂点レイアウト)
 D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
-	{ "POSITION",0,DXGI_FORMAT_R32G32B32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
-	//{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA ,0},
+	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	//{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 };
 
-//PMD
-//struct PMDData {
-//	float version;
-//	char modelName[20];
-//	char comment[256];
-//	unsigned int vertexNum;//頂点数
-//};
-//
-//struct t_Vertex {
-//	DirectX::XMFLOAT3 pos;
-//	DirectX::XMFLOAT3 nomalVector;
-//	DirectX::XMFLOAT2 uv;
-//	unsigned short boneNum[2];
-//	unsigned char boneWeight;
-//	unsigned char edgeFlag;
-//};38
-
-unsigned int vertexSize = sizeof(PMDVertex);
 const int screenBufferNum = 2;//画面バッファの数
 
 
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), angle(3.14 / 2), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr),depthBuffer(nullptr),
-descriptorHeapDSB(nullptr)
+constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr),depthBuffer(nullptr), descriptorHeapDSB(nullptr)
 {
 	MyDirectX12::LoadPMDModelData();
 	MyDirectX12::CreateDXGIFactory();
@@ -85,6 +50,8 @@ descriptorHeapDSB(nullptr)
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
+
+	count = 0;
 	
 }
 
@@ -97,15 +64,14 @@ void MyDirectX12::OutLoopDx12()
 {
 }
 
-void MyDirectX12::InLoopDx12()
+void MyDirectX12::InLoopDx12(float angle)
 {
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	/*angle += 5 * (180 / 3.14);
-	wvp.world = DirectX::XMMatrixRotationY(angle);*/
+	wvp.world = DirectX::XMMatrixRotationY(angle);
 
-	wvp.world = DirectX::XMMatrixIdentity();
+	//wvp.world = DirectX::XMMatrixIdentity();
 	memcpy(cbuff, &wvp, sizeof(wvp));
 
 	//背景色
@@ -123,14 +89,12 @@ void MyDirectX12::InLoopDx12()
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
 
-	std::vector<std::function<void(void)>> commandlist;
-	commandlist.push_back([]() {std::cout << "SetRTV" << std::endl; });
-	std::cout << "1" << std::endl;
-	commandlist.push_back([]() {std::cout << "ClearRTV" << std::endl; });
-	std::cout << "2" << std::endl;
-	commandlist.push_back([]() {std::cout << "Close" << std::endl; });
-	std::cout << "3" << std::endl;
+	cmdList->ResourceBarrier(1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			D3D12_RESOURCE_STATE_PRESENT));
 
+	//デプスバッファのクリア
 	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	//レンダーターゲットのセット
@@ -147,11 +111,6 @@ void MyDirectX12::InLoopDx12()
 
 	//インデックスバッファのセット
 	cmdList->IASetIndexBuffer(&ibView);
-
-	cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT));
 
 	//シェーダーレジスタ用デスクリプターヒープのセット
 	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
@@ -183,7 +142,7 @@ void MyDirectX12::InLoopDx12()
 
 	//PMDモデルインデックス入り表示
 	cmdList->DrawIndexedInstanced(pmdindices.size(), 1, 0, 0, 0);
-	
+
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -191,30 +150,25 @@ void MyDirectX12::InLoopDx12()
 
 	cmdList->Close();//リストのクローズ
 
-	for (auto& cmd : commandlist)
-	{
-		cmd();
-	}
-
-	ExecuteCommand();
+	ExecuteCommand(1);
 
 	swapChain->Present(1, 0);
-	
+
 	//コマンドの完了を待機
 	WaitWithFence();
 
 	bbindex = swapChain->GetCurrentBackBufferIndex();
 }
 
-void MyDirectX12::ExecuteCommand()
+void MyDirectX12::ExecuteCommand(unsigned int cmdlistnum)
 {
-	cmdQueue->ExecuteCommandLists(1, (ID3D12CommandList* const*)&cmdList);
+	cmdQueue->ExecuteCommandLists(cmdlistnum, (ID3D12CommandList* const*)&cmdList);
 	cmdQueue->Signal(fence, ++fenceValue);
 }
 
 void MyDirectX12::WaitWithFence()
 {
-	cmdQueue->Signal(fence, ++fenceValue);
+	//cmdQueue->Signal(fence, ++fenceValue);
 	while (fence->GetCompletedValue() != fenceValue)
 	{
 		//std::cout << "ふぇんすだよ" << std::endl;
@@ -384,8 +338,6 @@ void MyDirectX12::CreateRenderTarget()
 		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
 		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
 		descriptorHandleRTV.Offset(descriptorSizeRTV);
-		//descriptorHandle.ptr += descriptorSizeRTV;
-		//descriptorHandleRTV.ptr += descriptorSizeRTV;
 	}
 }
 
@@ -526,7 +478,7 @@ void MyDirectX12::CreateTextureBuffer()
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	cmdList->Close();
-	ExecuteCommand();
+	ExecuteCommand(1);
 
 	//シェーダリソースビュー
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
@@ -581,8 +533,8 @@ void MyDirectX12::LoadPMDModelData()
 void MyDirectX12::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
-	auto size = pmdvertices.size() * vertexSize;
-	auto stride = vertexSize;
+	auto size = pmdvertices.size() * sizeof(PMDVertex);
+	auto stride = sizeof(PMDVertex);
 
 	result = dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
@@ -739,7 +691,7 @@ void MyDirectX12::CreateConstantBuffer()
 	
 	//定数バッファ用のデータ設定
 	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
-	DirectX::XMFLOAT3 eye(0.f, 0.f, -35.f);
+	DirectX::XMFLOAT3 eye(0.f, 15.f, -25.f);
 	DirectX::XMFLOAT3 target(0.f, 10.f, 0.f);
 	DirectX::XMFLOAT3 up(0.f, 1.f, 0.f);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),

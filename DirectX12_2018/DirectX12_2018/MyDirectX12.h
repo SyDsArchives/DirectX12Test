@@ -59,7 +59,7 @@ class MyDirectX12
 private:
 	unsigned int bbindex;
 	int descriptorSizeRTV;
-	float angle;
+	int count;
 
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
@@ -116,7 +116,7 @@ private:
 	//フェンス
 	ID3D12Fence* fence;
 	UINT64 fenceValue;
-	void ExecuteCommand();
+	void ExecuteCommand(unsigned int cmdlistnum);
 	void WaitWithFence();
 
 	//サンプラー
@@ -155,7 +155,7 @@ public:
 	~MyDirectX12();
 	
 	void OutLoopDx12();
-	void InLoopDx12();
+	void InLoopDx12(float angle);
 
 	//ファクトリーの作成
 	void CreateDXGIFactory();
