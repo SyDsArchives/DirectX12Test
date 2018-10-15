@@ -146,9 +146,8 @@ private:
 	//PMDŠÖ˜A
 	char magic[3];
 	PMDData pmddata = {};
-	std::vector<unsigned char> pmdvertices;
-	std::vector<t_Vertex> vertex_t;
-	std::vector<PMDVertex> pmdvertex;
+	std::vector<PMDVertex> pmdvertices;
+	std::vector<unsigned short> pmdindices;
 
 
 public:

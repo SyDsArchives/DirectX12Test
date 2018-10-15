@@ -74,7 +74,7 @@ descriptorHeapDSB(nullptr)
 	MyDirectX12::CreateFence();
 	
 	MyDirectX12::CreateVertexBuffer();
-	//MyDirectX12::CreateIndexBuffer();
+	MyDirectX12::CreateIndexBuffer();
 	MyDirectX12::CreateDepthBuffer();
 	MyDirectX12::CreateRootParameter();
 	MyDirectX12::CreateRootSignature();
@@ -142,13 +142,11 @@ void MyDirectX12::InLoopDx12()
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
 
-	//cmdList->SetGraphicsRootConstantBufferView(0, constantBuffer->GetGPUVirtualAddress());
-
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
 
 	//インデックスバッファのセット
-	//cmdList->IASetIndexBuffer(&ibView);
+	cmdList->IASetIndexBuffer(&ibView);
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -172,7 +170,7 @@ void MyDirectX12::InLoopDx12()
 
 	//形情報のセット
 	//ラインリスト
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_POINTLIST);
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//四角
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -181,7 +179,10 @@ void MyDirectX12::InLoopDx12()
 	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);//頂点情報のみでの描画
 
 	//頂点のみのモデル描画
-	cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0);
+	//cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0);
+
+	//PMDモデルインデックス入り表示
+	cmdList->DrawIndexedInstanced(pmdindices.size(), 1, 0, 0, 0);
 	
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -548,33 +549,39 @@ void MyDirectX12::LoadPMDModelData()
 	fread(&magic, sizeof(magic), 1, miku_pmd);
 	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
 
-	pmdvertex.resize(pmddata.vertexNum);
+	//頂点読み込み
+	pmdvertices.resize(pmddata.vertexNum);
 
-	for (UINT i = 0; i < pmddata.vertexNum; ++i)
 	{
-		fread(&pmdvertex[i], sizeof(PMDVertex), 1, miku_pmd);
+		for (UINT i = 0; i < pmddata.vertexNum; ++i)
+		{
+			fread(&pmdvertices[i], sizeof(PMDVertex), 1, miku_pmd);
+		}
 	}
 
+	//インデックス読み込み
+	//インデックス数の読み込み
+	unsigned int indexNum = 0;
+	fread(&indexNum, sizeof(unsigned int), 1, miku_pmd);
+
+	pmdindices.resize(indexNum);
+
+	//各頂点毎のインデックス情報を読み込む
+	{
+		for (int i = 0; i < indexNum; ++i)
+		{
+			fread(&pmdindices[i], sizeof(unsigned short), 1, miku_pmd);
+		}
+	}
+	
+	//ファイルを閉じる
 	fclose(miku_pmd);
-
-
-	////pmd(char)
-	//FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
-
-	//fread(&magic, sizeof(magic), 1, miku_pmd);
-	//fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
-
-	//pmdvertices.resize(pmddata.vertexNum * vertexSize);
-
-	//fread(pmdvertices.data(), pmdvertices.size(), 1, miku_pmd);
-
-	//fclose(miku_pmd);
 }
 
 void MyDirectX12::CreateVertexBuffer()
 {
 	HRESULT result = S_OK;
-	auto size = pmdvertex.size() * vertexSize;
+	auto size = pmdvertices.size() * vertexSize;
 	auto stride = vertexSize;
 
 	result = dev->CreateCommittedResource(
@@ -588,7 +595,7 @@ void MyDirectX12::CreateVertexBuffer()
 	PMDVertex* pmdvert = nullptr;
 	//mapで頂点情報をGPUに送る
 	result = vertexBuffer->Map(0, nullptr, (void**)(&pmdvert));
-	std::copy(pmdvertex.begin(), pmdvertex.end(), pmdvert);
+	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
 	vertexBuffer->Unmap(0, nullptr);
 
 	//頂点バッファビュー
@@ -602,24 +609,26 @@ void MyDirectX12::CreateIndexBuffer()
 {
 	HRESULT result = S_OK;
 
+	auto size = pmdindices.size() * sizeof(pmdindices[0]);
+
 	ID3D12Resource* indexBuffer = nullptr;
 	result = dev->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),//CPUからGPUへ転送する
 		D3D12_HEAP_FLAG_NONE,//指定なし
-		&CD3DX12_RESOURCE_DESC::Buffer(indices.size() * sizeof(indices[0]) * 4),//サイズ
+		&CD3DX12_RESOURCE_DESC::Buffer(size),//サイズ
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&indexBuffer));
 
 	unsigned short* idxdata = nullptr;
-	D3D12_RANGE indexRange = { 0,0 };
-	result = indexBuffer->Map(0, &indexRange, (void**)&idxdata);
-	std::copy(indices.begin(), indices.end(), idxdata);
+	//D3D12_RANGE indexRange = { 0,0 };
+	result = indexBuffer->Map(0, nullptr, (void**)&idxdata);
+	std::copy(pmdindices.begin(), pmdindices.end(), idxdata);
 	indexBuffer->Unmap(0, nullptr);
 
 	ibView.BufferLocation = indexBuffer->GetGPUVirtualAddress();
 	ibView.Format = DXGI_FORMAT_R16_UINT;//フォーマット(型のサイズ(short = 16)のためR16)
-	ibView.SizeInBytes = indices.size() * sizeof(indices[0]) * 4;
+	ibView.SizeInBytes = size;
 }
 
 void MyDirectX12::CreateDepthBuffer()
