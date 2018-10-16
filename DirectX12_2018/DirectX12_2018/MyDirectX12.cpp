@@ -341,6 +341,20 @@ void MyDirectX12::CreateRenderTarget()
 		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
 		descriptorHandleRTV.Offset(descriptorSizeRTV);
 	}
+	//HRESULT result = S_OK;
+	//int rtvNum = screenBufferNum;
+	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
+	//descriptorHandle = descriptorHandleRTV;
+
+	//renderTarget.resize(rtvNum);
+	//descriptorSizeRTV = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	//for (int i = 0; i < rtvNum; ++i)
+	//{
+	//	result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
+	//	dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandle);
+	//	descriptorHandle.ptr += descriptorSizeRTV;
+	//}
 }
 
 void MyDirectX12::CreateFence()
