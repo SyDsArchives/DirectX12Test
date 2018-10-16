@@ -22,8 +22,7 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL)
 	Output output;
 
 	output.svpos = pos;
-	//matrix m = world;
-	//pos = mul(mul(viewproj, m), pos);
+	
 	float4 localpos = pos;
 	float4 worldpos = mul(world, localpos);
 	float4 viewprojpos = mul(viewproj, worldpos);

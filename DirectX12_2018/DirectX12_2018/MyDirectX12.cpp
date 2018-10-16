@@ -46,7 +46,7 @@ constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShad
 	MyDirectX12::CreateShader();
 	MyDirectX12::CreatePiplineState();
 	MyDirectX12::CreateDescriptorHeapRegister();
-	MyDirectX12::CreateTextureBuffer();
+	//MyDirectX12::CreateTextureBuffer();
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
@@ -89,10 +89,16 @@ void MyDirectX12::InLoopDx12(float angle)
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
 
-	cmdList->ResourceBarrier(1,
+	//ビューポートのセット
+	cmdList->RSSetViewports(1, &viewport);
+
+	//シザーレクトのセット
+	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	/*cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT));
+			D3D12_RESOURCE_STATE_PRESENT));*/
 
 	//デプスバッファのクリア
 	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
@@ -117,12 +123,6 @@ void MyDirectX12::InLoopDx12(float angle)
 
 	//シェーダーレジスタ用デスクリプターテーブルの指定
 	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//ビューポートのセット
-	cmdList->RSSetViewports(1, &viewport);
-
-	//シザーレクトのセット
-	cmdList->RSSetScissorRects(1, &scissorRect);
 
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
@@ -156,8 +156,6 @@ void MyDirectX12::InLoopDx12(float angle)
 
 	//コマンドの完了を待機
 	WaitWithFence();
-
-	bbindex = swapChain->GetCurrentBackBufferIndex();
 }
 
 void MyDirectX12::ExecuteCommand(unsigned int cmdlistnum)
@@ -168,11 +166,15 @@ void MyDirectX12::ExecuteCommand(unsigned int cmdlistnum)
 
 void MyDirectX12::WaitWithFence()
 {
-	//cmdQueue->Signal(fence, ++fenceValue);
+	cmdQueue->Signal(fence, ++fenceValue);
+	auto a = fence->GetCompletedValue();
+
 	while (fence->GetCompletedValue() != fenceValue)
 	{
-		//std::cout << "ふぇんすだよ" << std::endl;
+		std::cout << "ふぇんすだよ" << std::endl;
 	}
+
+	bbindex = swapChain->GetCurrentBackBufferIndex();
 }
 
 
@@ -479,6 +481,7 @@ void MyDirectX12::CreateTextureBuffer()
 			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	cmdList->Close();
 	ExecuteCommand(1);
+	WaitWithFence();
 
 	//シェーダリソースビュー
 	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
@@ -687,17 +690,17 @@ void MyDirectX12::CreateConstantBuffer()
 	dev->CreateConstantBufferView(&constdesc, handle);
 
 	//アスペクト比の算出
-	auto aspectRatio = static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight);
+	auto aspectRatio = 0.5;//static_cast<float>(WindowWidth) / static_cast<float>(WindowHeight);
 	
 	//定数バッファ用のデータ設定
 	DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
-	DirectX::XMFLOAT3 eye(0.f, 15.f, -25.f);
+	DirectX::XMFLOAT3 eye(0.f, 15.f, -60.f);
 	DirectX::XMFLOAT3 target(0.f, 10.f, 0.f);
 	DirectX::XMFLOAT3 up(0.f, 1.f, 0.f);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),
 		XMLoadFloat3(&target),
 		XMLoadFloat3(&up));
-	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV2,
+	auto projection = DirectX::XMMatrixPerspectiveLH(DirectX::XM_PIDIV4,
 		aspectRatio,
 		1.f,
 		1000.f);

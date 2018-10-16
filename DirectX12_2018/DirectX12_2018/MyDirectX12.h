@@ -118,6 +118,8 @@ private:
 	UINT64 fenceValue;
 	void ExecuteCommand(unsigned int cmdlistnum);
 	void WaitWithFence();
+	//イベント
+	HANDLE evhandle;
 
 	//サンプラー
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
