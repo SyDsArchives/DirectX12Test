@@ -58,7 +58,7 @@ class MyDirectX12
 {
 private:
 	unsigned int bbindex;
-	int descriptorSizeRTV;
+	unsigned int descriptorSizeRTV;
 	int count;
 
 	HWND hwnd;

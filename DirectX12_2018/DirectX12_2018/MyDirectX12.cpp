@@ -78,8 +78,8 @@ void MyDirectX12::InLoopDx12(float angle)
 	float clearColor[4] = { 1, 1, 1, 1 };
 
 	//RTVHandleInclement
-	auto heapStartCPU = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-	heapStartCPU.ptr += (bbindex * descriptorSizeRTV);
+	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	handleRTV.ptr += (bbindex * descriptorSizeRTV);
 
 	//DSV
 	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
@@ -89,25 +89,23 @@ void MyDirectX12::InLoopDx12(float angle)
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
 
+	//デスクリプターヒープのセット
+	//cmdList->SetDescriptorHeaps(1, &descriptorHeapRTV);
+
 	//ビューポートのセット
 	cmdList->RSSetViewports(1, &viewport);
 
 	//シザーレクトのセット
 	cmdList->RSSetScissorRects(1, &scissorRect);
 
-	/*cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT));*/
-
 	//デプスバッファのクリア
 	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 	//レンダーターゲットのセット
 	//クリア
-	cmdList->ClearRenderTargetView(descriptorHandle, clearColor, 0, nullptr);
+	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
 	//レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &heapStartCPU, true, &handleDSV);
+	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
 
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
@@ -123,6 +121,11 @@ void MyDirectX12::InLoopDx12(float angle)
 
 	//シェーダーレジスタ用デスクリプターテーブルの指定
 	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	cmdList->ResourceBarrier(1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			D3D12_RESOURCE_STATE_PRESENT));
 
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
@@ -171,7 +174,7 @@ void MyDirectX12::WaitWithFence()
 
 	while (fence->GetCompletedValue() != fenceValue)
 	{
-		std::cout << "ふぇんすだよ" << std::endl;
+		//std::cout << "ふぇんすだよ" << std::endl;
 	}
 
 	bbindex = swapChain->GetCurrentBackBufferIndex();
@@ -285,21 +288,6 @@ void MyDirectX12::CreateCommandList()
 		IID_PPV_ARGS(&cmdList));
 }
 
-void MyDirectX12::CreateDescriptorHeapRTV()
-{
-	//RTV用のデスクリプターヒープの作成
-
-	HRESULT result = S_OK;
-
-	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
-	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	descHeapDesc.NumDescriptors = screenBufferNum;
-	descHeapDesc.NodeMask = 0;
-	
-	result = dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&descriptorHeapRTV));
-}
-
 void MyDirectX12::CreateSwapChain()
 {
 	//スワップチェインの作成
@@ -323,24 +311,25 @@ void MyDirectX12::CreateSwapChain()
 	result = dxgiFactory->CreateSwapChainForHwnd(cmdQueue, hwnd, &swapChainDesc, nullptr, nullptr, (IDXGISwapChain1**)(&swapChain));
 }
 
+void MyDirectX12::CreateDescriptorHeapRTV()
+{
+	//RTV用のデスクリプターヒープの作成
+
+	HRESULT result = S_OK;
+
+	D3D12_DESCRIPTOR_HEAP_DESC descHeapDesc = {};
+	descHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	descHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	descHeapDesc.NumDescriptors = screenBufferNum;
+	descHeapDesc.NodeMask = 0;
+
+	result = dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&descriptorHeapRTV));
+}
+
 void MyDirectX12::CreateRenderTarget()
 {
 	//レンダーターゲットの作成
 
-	HRESULT result = S_OK;
-	int rtvNum = screenBufferNum;
-	CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
-	descriptorHandle = descriptorHandleRTV;
-
-	renderTarget.resize(rtvNum);
-	descriptorSizeRTV = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	for (int i = 0; i < rtvNum; ++i)
-	{
-		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
-		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
-		descriptorHandleRTV.Offset(descriptorSizeRTV);
-	}
 	//HRESULT result = S_OK;
 	//int rtvNum = screenBufferNum;
 	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
@@ -352,9 +341,25 @@ void MyDirectX12::CreateRenderTarget()
 	//for (int i = 0; i < rtvNum; ++i)
 	//{
 	//	result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
-	//	dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandle);
-	//	descriptorHandle.ptr += descriptorSizeRTV;
+	//	dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
+	//	descriptorHandleRTV.Offset(descriptorSizeRTV);
 	//}
+
+	HRESULT result = S_OK;
+	int rtvNum = screenBufferNum;
+	CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
+	descriptorHandle = descriptorHandleRTV;
+
+
+	renderTarget.resize(rtvNum);
+	descriptorSizeRTV = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	for (int i = 0; i < rtvNum; ++i)
+	{
+		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
+		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandle);
+		descriptorHandle.ptr += descriptorSizeRTV;
+	}
 }
 
 void MyDirectX12::CreateFence()
