@@ -28,7 +28,7 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL)
 	float4 viewprojpos = mul(viewproj, worldpos);
 	output.svpos = viewprojpos;
 
-	output.normal = normal;
+	output.normal = mul(world,normal);
 	
 	return output;
 

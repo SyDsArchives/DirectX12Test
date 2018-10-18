@@ -46,6 +46,20 @@ struct PMDVertex {
 };
 #pragma pack()
 
+#pragma pack(1)
+struct PMDMaterials {
+	float diffuse[3];
+	float alpha;
+	float specularity;
+	float specularityColor[3];
+	float mirror[3];
+	unsigned char toonIndex;
+	unsigned char edgeFlag;
+	unsigned int faceVertCount;
+	char textureFileName[20];
+};
+#pragma pack()
+
 
 struct Cbuffer {
 	DirectX::XMMATRIX world;
@@ -150,6 +164,11 @@ private:
 	PMDData pmddata = {};
 	std::vector<PMDVertex> pmdvertices;
 	std::vector<unsigned short> pmdindices;
+	std::vector<PMDMaterials> pmdmaterials;
+
+	//マテリアルバッファ
+	ID3D12Resource* materialBuffer;
+	PMDMaterials material;
 
 
 public:
@@ -224,5 +243,9 @@ public:
 
 	//モデル関連
 	void LoadPMDModelData();
+
+	//マテリアルバッファ
+	void CreateMaterialBuffer();
+	void PMDMaterialUpdate(std::vector<PMDMaterials> materials, const void * mbuff, unsigned int materialNum);
 };
 

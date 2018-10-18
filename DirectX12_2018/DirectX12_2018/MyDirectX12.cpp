@@ -47,6 +47,7 @@ constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShad
 	MyDirectX12::CreatePiplineState();
 	MyDirectX12::CreateDescriptorHeapRegister();
 	//MyDirectX12::CreateTextureBuffer();
+	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
@@ -548,6 +549,28 @@ void MyDirectX12::LoadPMDModelData()
 		}
 	}
 	
+
+	unsigned int materialNum = 0;
+	fread(&materialNum, sizeof(unsigned int), 1, miku_pmd);
+
+	pmdmaterials.resize(materialNum);
+
+	{
+		for(int i = 0; i < materialNum; ++i)
+		{
+			//fread(&pmdmaterials[i], sizeof(PMDMaterials), 1, miku_pmd);
+			fread(&pmdmaterials[i].diffuse, sizeof(pmdmaterials[i].diffuse), 1, miku_pmd);
+			fread(&pmdmaterials[i].alpha, sizeof(pmdmaterials[i].alpha), 1, miku_pmd);
+			fread(&pmdmaterials[i].specularity, sizeof(pmdmaterials[i].specularity), 1, miku_pmd);
+			fread(&pmdmaterials[i].specularityColor, sizeof(pmdmaterials[i].specularityColor), 1, miku_pmd);
+			fread(&pmdmaterials[i].mirror, sizeof(pmdmaterials[i].mirror), 1, miku_pmd);
+			fread(&pmdmaterials[i].toonIndex, sizeof(pmdmaterials[i].toonIndex), 1, miku_pmd);
+			fread(&pmdmaterials[i].edgeFlag, sizeof(pmdmaterials[i].edgeFlag), 1, miku_pmd);
+			fread(&pmdmaterials[i].faceVertCount, sizeof(pmdmaterials[i].faceVertCount), 1, miku_pmd);
+			fread(&pmdmaterials[i].textureFileName, sizeof(pmdmaterials[i].textureFileName), 1, miku_pmd);
+		}
+	}
+
 	//ファイルを閉じる
 	fclose(miku_pmd);
 }
@@ -733,6 +756,64 @@ void MyDirectX12::CreateConstantBuffer()
 	//定数バッファ用データの更新
 	//*cbuff = wvp;
 	memcpy(cbuff, &wvp, sizeof(wvp));
+}
+
+void MyDirectX12::CreateMaterialBuffer()
+{
+	HRESULT result = S_OK;
+
+	size_t size = sizeof(PMDMaterials) * pmdmaterials.size();
+	size = (size + 0xff)&~0xff;
+
+	D3D12_HEAP_PROPERTIES materialHeapProperties = {};
+	materialHeapProperties.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+	materialHeapProperties.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+	materialHeapProperties.CreationNodeMask = 1;
+	materialHeapProperties.VisibleNodeMask = 1;
+	materialHeapProperties.Type = D3D12_HEAP_TYPE_UPLOAD;
+
+	D3D12_RESOURCE_DESC desc = {};
+	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+	desc.Alignment = 0;
+	desc.Width = size;
+	desc.Height = 1;
+	desc.DepthOrArraySize = 1;
+	desc.MipLevels = 1;
+	desc.Format = DXGI_FORMAT_UNKNOWN;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 0;
+	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+	desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	result = dev->CreateCommittedResource(&materialHeapProperties,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&desc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&materialBuffer));
+
+	//マップする
+	result = materialBuffer->Map(0, nullptr, (void**)&material);
+
+
+	//定数バッファビューの設定
+	D3D12_CONSTANT_BUFFER_VIEW_DESC materialdesc = {};
+	materialdesc.BufferLocation = materialBuffer->GetGPUVirtualAddress();
+	materialdesc.SizeInBytes = size;
+
+	//auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	//auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//handle.ptr += h_size;
+	////定数バッファの生成
+	//dev->CreateConstantBufferView(&materialdesc, handle);
+}
+
+void MyDirectX12::PMDMaterialUpdate(std::vector<PMDMaterials> materials,const void* mbuff,unsigned int materialNum)
+{
+	for (int i = 0; i < materialNum; ++i)
+	{
+
+	}
 }
 
 void MyDirectX12::CreateRootParameter()
