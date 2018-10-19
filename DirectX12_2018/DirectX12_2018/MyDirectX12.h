@@ -139,8 +139,9 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[1] = {};
+	D3D12_ROOT_PARAMETER rootParam[2] = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
+	D3D12_DESCRIPTOR_RANGE materialRange = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
@@ -165,10 +166,12 @@ private:
 	std::vector<PMDVertex> pmdvertices;
 	std::vector<unsigned short> pmdindices;
 	std::vector<PMDMaterials> pmdmaterials;
+	unsigned int materialNum;
 
 	//マテリアルバッファ
 	ID3D12Resource* materialBuffer;
 	PMDMaterials material;
+	ID3D12DescriptorHeap* materialDescHeap;
 
 
 public:
@@ -246,6 +249,6 @@ public:
 
 	//マテリアルバッファ
 	void CreateMaterialBuffer();
-	void PMDMaterialUpdate(std::vector<PMDMaterials> materials, const void * mbuff, unsigned int materialNum);
+	void PMDMaterialUpdate(std::vector<PMDMaterials>& materials);
 };
 

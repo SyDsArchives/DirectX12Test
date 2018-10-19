@@ -15,6 +15,11 @@ cbuffer mat:register(b0)
 	bool existtex;
 }
 
+cbuffer material:register(b1)
+{
+	float3 matdiffuse;
+}
+
 
 //頂点シェーダ
 Output vs( float4 pos:POSITION,float4 normal:NORMAL)
@@ -43,5 +48,6 @@ float4 ps(Output output):SV_Target
 	float3 light = float3(-1, 1, -1);
 	light = normalize(light);
 	float brightness = dot(output.normal, light);
+	brightness = brightness * matdiffuse;
 	return float4(brightness, brightness, brightness, 1);
 }

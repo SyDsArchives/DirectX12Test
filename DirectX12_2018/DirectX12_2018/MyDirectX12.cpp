@@ -25,7 +25,8 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
 cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
 fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rtvDescHeap(nullptr), dsvDescHeap(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr),depthBuffer(nullptr), descriptorHeapDSB(nullptr)
+constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr),depthBuffer(nullptr), descriptorHeapDSB(nullptr),
+materialDescHeap(nullptr)
 {
 	MyDirectX12::LoadPMDModelData();
 	MyDirectX12::CreateDXGIFactory();
@@ -47,8 +48,8 @@ constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShad
 	MyDirectX12::CreatePiplineState();
 	MyDirectX12::CreateDescriptorHeapRegister();
 	//MyDirectX12::CreateTextureBuffer();
-	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::CreateConstantBuffer();
+	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
 
@@ -89,9 +90,6 @@ void MyDirectX12::InLoopDx12(float angle)
 	result = cmdAllocator->Reset();
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
-
-	//デスクリプターヒープのセット
-	//cmdList->SetDescriptorHeaps(1, &descriptorHeapRTV);
 
 	//ビューポートのセット
 	cmdList->RSSetViewports(1, &viewport);
@@ -145,7 +143,21 @@ void MyDirectX12::InLoopDx12(float angle)
 	//cmdList->DrawInstanced(pmddata.vertexNum, 1, 0, 0);
 
 	//PMDモデルインデックス入り表示
-	cmdList->DrawIndexedInstanced(pmdindices.size(), 1, 0, 0, 0);
+	//cmdList->DrawIndexedInstanced(pmdindices.size(), 1, 0, 0, 0);
+
+	//マテリアル用デスクリプターヒープのセットとモデル描画
+	cmdList->SetDescriptorHeaps(1, &materialDescHeap);
+
+	auto materialhandle = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
+	int offset = 0;
+	for (auto m : pmdmaterials)
+	{
+		cmdList->SetGraphicsRootDescriptorTable(1, materialhandle);
+		materialhandle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		auto idxcount = m.faceVertCount;
+		cmdList->DrawIndexedInstanced(idxcount, 1, offset, 0, 0);
+		offset += idxcount;
+	}
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -550,7 +562,7 @@ void MyDirectX12::LoadPMDModelData()
 	}
 	
 
-	unsigned int materialNum = 0;
+	materialNum = 0;
 	fread(&materialNum, sizeof(unsigned int), 1, miku_pmd);
 
 	pmdmaterials.resize(materialNum);
@@ -785,6 +797,13 @@ void MyDirectX12::CreateMaterialBuffer()
 	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
+	D3D12_DESCRIPTOR_HEAP_DESC materialDesc = {};
+	materialDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	materialDesc.NumDescriptors = materialNum;
+	materialDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	result = dev->CreateDescriptorHeap(&materialDesc, IID_PPV_ARGS(&materialDescHeap));
+
 	result = dev->CreateCommittedResource(&materialHeapProperties,
 		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
 		&desc,
@@ -793,27 +812,32 @@ void MyDirectX12::CreateMaterialBuffer()
 		IID_PPV_ARGS(&materialBuffer));
 
 	//マップする
-	result = materialBuffer->Map(0, nullptr, (void**)&material);
-
+	float* matdif = nullptr;
+	result = materialBuffer->Map(0, nullptr, (void**)&matdif);
 
 	//定数バッファビューの設定
-	D3D12_CONSTANT_BUFFER_VIEW_DESC materialdesc = {};
-	materialdesc.BufferLocation = materialBuffer->GetGPUVirtualAddress();
-	materialdesc.SizeInBytes = size;
+	D3D12_CONSTANT_BUFFER_VIEW_DESC materialViewDesc = {};
 
-	//auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
-	//auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	//handle.ptr += h_size;
-	////定数バッファの生成
-	//dev->CreateConstantBufferView(&materialdesc, handle);
+	auto handle = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
+	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	for (auto m : pmdmaterials)
+	{
+		//MyDirectX12::PMDMaterialUpdate(pmdmaterials);
+		//memcpy(&matdif, &m.diffuse, sizeof(m.diffuse));
+		std::copy(std::begin(m.diffuse), std::end(m.diffuse), matdif);
+		materialViewDesc.BufferLocation = materialBuffer->GetGPUVirtualAddress();
+		materialViewDesc.SizeInBytes = sizeof(PMDMaterials);
+		dev->CreateConstantBufferView(&materialViewDesc, handle);
+		materialViewDesc.BufferLocation += size;
+		handle.ptr += h_size;
+	}
+	materialBuffer->Unmap(0,nullptr);
 }
 
-void MyDirectX12::PMDMaterialUpdate(std::vector<PMDMaterials> materials,const void* mbuff,unsigned int materialNum)
+void MyDirectX12::PMDMaterialUpdate(std::vector<PMDMaterials>& materials)
 {
-	for (int i = 0; i < materialNum; ++i)
-	{
-
-	}
+	memcpy(&material, &materials, sizeof(materials));
 }
 
 void MyDirectX12::CreateRootParameter()
@@ -845,18 +869,23 @@ void MyDirectX12::CreateRootParameter()
 	descriptorRange[1].BaseShaderRegister = 0;//レジスタ番号
 	descriptorRange[1].NumDescriptors = 1;
 	descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//b[1]
+	materialRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
+	materialRange.BaseShaderRegister = 1;//レジスタ番号
+	materialRange.NumDescriptors = pmdmaterials.size();
+	materialRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//ルートパラメーター
-	//t[0]
+	//register
 	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[0].DescriptorTable.NumDescriptorRanges = 2;
 	rootParam[0].DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
 	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-	//b[0]
-	//rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	//rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
-	//rootParam[1].DescriptorTable.pDescriptorRanges = &descriptorRange[1];//対応するレンジへのポインタ
-	//rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	//material
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[1].DescriptorTable.pDescriptorRanges = &materialRange;//対応するレンジへのポインタ
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignature()
