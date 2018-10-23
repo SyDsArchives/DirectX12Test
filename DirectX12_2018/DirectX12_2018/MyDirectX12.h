@@ -64,8 +64,6 @@ struct PMDMaterials {
 struct Cbuffer {
 	DirectX::XMMATRIX world;
 	DirectX::XMMATRIX viewproj;
-	DirectX::XMFLOAT3 diffuse;
-	bool existtex;
 };
 
 class MyDirectX12
@@ -169,9 +167,9 @@ private:
 	unsigned int materialNum;
 
 	//マテリアルバッファ
-	ID3D12Resource* materialBuffer;
 	PMDMaterials material;
 	ID3D12DescriptorHeap* materialDescHeap;
+	std::vector<ID3D12Resource*> materialBuffer;
 
 
 public:
@@ -249,6 +247,7 @@ public:
 
 	//マテリアルバッファ
 	void CreateMaterialBuffer();
+	void CreateDescriptorHeapforMaterial();
 	void PMDMaterialUpdate(std::vector<PMDMaterials>& materials);
 };
 

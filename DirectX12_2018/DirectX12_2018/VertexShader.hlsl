@@ -11,13 +11,14 @@ cbuffer mat:register(b0)
 {
 	float4x4 world;
 	float4x4 viewproj;
-	float3 diffuse;
-	bool existtex;
 }
 
 cbuffer material:register(b1)
 {
-	float3 matdiffuse;
+	float3 diffuse;
+	/*float alpha;
+	float specularity;
+	float3 specularityColor;*/
 }
 
 
@@ -36,10 +37,6 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL)
 	output.normal = mul(world,normal);
 	
 	return output;
-
-	//pos = mul(mat, pos);
-	//output.svpos = output.color = pos;
-	//output.uv = uv;
 }
 
 //ピクセルシェーダ
@@ -48,6 +45,6 @@ float4 ps(Output output):SV_Target
 	float3 light = float3(-1, 1, -1);
 	light = normalize(light);
 	float brightness = dot(output.normal, light);
-	brightness = brightness * matdiffuse;
+	brightness = brightness * diffuse;
 	return float4(brightness, brightness, brightness, 1);
 }

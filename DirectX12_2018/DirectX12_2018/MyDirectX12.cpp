@@ -3,6 +3,8 @@
 #include "d3dx12.h"
 #include <iostream>
 
+//#include "LoadImageFile.h"
+
 
 #include "DirectXTex.h"
 
@@ -47,6 +49,7 @@ materialDescHeap(nullptr)
 	MyDirectX12::CreateShader();
 	MyDirectX12::CreatePiplineState();
 	MyDirectX12::CreateDescriptorHeapRegister();
+	MyDirectX12::CreateDescriptorHeapforMaterial();
 	//MyDirectX12::CreateTextureBuffer();
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateMaterialBuffer();
@@ -343,21 +346,6 @@ void MyDirectX12::CreateRenderTarget()
 {
 	//レンダーターゲットの作成
 
-	//HRESULT result = S_OK;
-	//int rtvNum = screenBufferNum;
-	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
-	//descriptorHandle = descriptorHandleRTV;
-
-	//renderTarget.resize(rtvNum);
-	//descriptorSizeRTV = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	//for (int i = 0; i < rtvNum; ++i)
-	//{
-	//	result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
-	//	dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandleRTV);
-	//	descriptorHandleRTV.Offset(descriptorSizeRTV);
-	//}
-
 	HRESULT result = S_OK;
 	int rtvNum = screenBufferNum;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
@@ -427,29 +415,6 @@ void MyDirectX12::CreateDescriptorHeapRegister()
 void MyDirectX12::CreateTextureBuffer()
 {
 	HRESULT result = S_OK;
-
-	//bmp
-	//テクスチャの読み込み
-	//BITMAPFILEHEADER bmpFileHeader = {};
-	//BITMAPINFOHEADER bmpInfoHeader = {};
-
-	//FILE* tiles;
-	//std::vector<char> data;
-	//tiles = fopen("resource/img/tiles.bmp", "rb");
-	//fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, tiles);
-	//fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, tiles);
-	//data.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
-	////反転読み込み防止のため一つずつ読み込む
-	//for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
-	//{
-	//	for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
-	//	{
-	//		unsigned int address = line * bmpInfoHeader.biWidth * 4;
-	//		data[address + count] = 0;
-	//		fread(&data[address + count + 1], sizeof(unsigned char), 3, tiles);
-	//	}
-	//}
-	//fclose(tiles);
 
 	//png
 	DirectX::TexMetadata metadata;
@@ -570,7 +535,6 @@ void MyDirectX12::LoadPMDModelData()
 	{
 		for(int i = 0; i < materialNum; ++i)
 		{
-			//fread(&pmdmaterials[i], sizeof(PMDMaterials), 1, miku_pmd);
 			fread(&pmdmaterials[i].diffuse, sizeof(pmdmaterials[i].diffuse), 1, miku_pmd);
 			fread(&pmdmaterials[i].alpha, sizeof(pmdmaterials[i].alpha), 1, miku_pmd);
 			fread(&pmdmaterials[i].specularity, sizeof(pmdmaterials[i].specularity), 1, miku_pmd);
@@ -762,8 +726,6 @@ void MyDirectX12::CreateConstantBuffer()
 	//定数バッファ用データにセット
 	wvp.world = world;
 	wvp.viewproj = camera * projection;
-	wvp.diffuse = DirectX::XMFLOAT3(0, 0, 0);
-	wvp.existtex = true;
 	
 	//定数バッファ用データの更新
 	//*cbuff = wvp;
@@ -774,7 +736,7 @@ void MyDirectX12::CreateMaterialBuffer()
 {
 	HRESULT result = S_OK;
 
-	size_t size = sizeof(PMDMaterials) * pmdmaterials.size();
+	size_t size = sizeof(PMDMaterials);
 	size = (size + 0xff)&~0xff;
 
 	D3D12_HEAP_PROPERTIES materialHeapProperties = {};
@@ -787,7 +749,7 @@ void MyDirectX12::CreateMaterialBuffer()
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 	desc.Alignment = 0;
-	desc.Width = size;
+	desc.Width = size * pmdmaterials.size();
 	desc.Height = 1;
 	desc.DepthOrArraySize = 1;
 	desc.MipLevels = 1;
@@ -797,47 +759,62 @@ void MyDirectX12::CreateMaterialBuffer()
 	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	desc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-	D3D12_DESCRIPTOR_HEAP_DESC materialDesc = {};
-	materialDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	materialDesc.NumDescriptors = materialNum;
-	materialDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	int midx = 0;
+	materialBuffer.resize(pmdmaterials.size());
 
-	result = dev->CreateDescriptorHeap(&materialDesc, IID_PPV_ARGS(&materialDescHeap));
+	if ((size * pmdmaterials.size()) % 256 != 0)
+	{
+		std::cout << "PMD Materials Size Error : Not Size 256 byte Alignment" << std::endl;
+	}
 
-	result = dev->CreateCommittedResource(&materialHeapProperties,
-		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		&desc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&materialBuffer));
+	for (auto& mbuff : materialBuffer)
+	{
+		result = dev->CreateCommittedResource(&materialHeapProperties,
+			D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+			&desc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&mbuff));
 
-	//マップする
-	float* matdif = nullptr;
-	result = materialBuffer->Map(0, nullptr, (void**)&matdif);
+		PMDMaterials* mat = nullptr;
+
+		result = mbuff->Map(0, nullptr, (void**)&mat);
+		*mat = pmdmaterials[midx];
+		mbuff->Unmap(0, nullptr);
+		++midx;
+	}
 
 	//定数バッファビューの設定
-	D3D12_CONSTANT_BUFFER_VIEW_DESC materialViewDesc = {};
+	D3D12_CONSTANT_BUFFER_VIEW_DESC materialdesc = {};
 
 	auto handle = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
 	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	for (auto m : pmdmaterials)
+	int idx = 0;
+	for (auto& mbuff : materialBuffer)
 	{
-		//MyDirectX12::PMDMaterialUpdate(pmdmaterials);
-		//memcpy(&matdif, &m.diffuse, sizeof(m.diffuse));
-		std::copy(std::begin(m.diffuse), std::end(m.diffuse), matdif);
-		materialViewDesc.BufferLocation = materialBuffer->GetGPUVirtualAddress();
-		materialViewDesc.SizeInBytes = sizeof(PMDMaterials);
-		dev->CreateConstantBufferView(&materialViewDesc, handle);
-		materialViewDesc.BufferLocation += size;
+		materialdesc.BufferLocation = mbuff->GetGPUVirtualAddress();
+		materialdesc.SizeInBytes = size;
+
+		//定数バッファの生成
+		dev->CreateConstantBufferView(&materialdesc, handle);
+
 		handle.ptr += h_size;
+
+		++idx;
 	}
-	materialBuffer->Unmap(0,nullptr);
 }
 
-void MyDirectX12::PMDMaterialUpdate(std::vector<PMDMaterials>& materials)
+void MyDirectX12::CreateDescriptorHeapforMaterial()
 {
-	memcpy(&material, &materials, sizeof(materials));
+	HRESULT result = S_OK;
+	//MaterialのCBV,SRV,UAV用のDescriptorHeapDescの生成
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.NumDescriptors = pmdmaterials.size();
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&materialDescHeap));
 }
 
 void MyDirectX12::CreateRootParameter()
@@ -857,7 +834,6 @@ void MyDirectX12::CreateRootParameter()
 	samplerDesc.MaxAnisotropy = 0;//.Filter が Anisotropy の時のみ有効
 	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
 
-
 	//レンジ
 	//t[0]
 	descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
@@ -872,13 +848,13 @@ void MyDirectX12::CreateRootParameter()
 	//b[1]
 	materialRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
 	materialRange.BaseShaderRegister = 1;//レジスタ番号
-	materialRange.NumDescriptors = pmdmaterials.size();
+	materialRange.NumDescriptors = 1;
 	materialRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
 	//ルートパラメーター
 	//register
 	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[0].DescriptorTable.NumDescriptorRanges = 2;
+	rootParam[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
 	rootParam[0].DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
 	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	//material

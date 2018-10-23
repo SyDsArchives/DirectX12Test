@@ -124,6 +124,7 @@
     <ClCompile Include="App.cpp">
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
+    <ClCompile Include="LoadImageFile.cpp" />
     <ClCompile Include="MyDirectX12.cpp">
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
@@ -135,6 +136,7 @@
     <ClInclude Include="..\Library\DirectXTex-master\DirectXTex\DirectXTex.h" />
     <ClInclude Include="App.h" />
     <ClInclude Include="d3dx12.h" />
+    <ClInclude Include="LoadImageFile.h" />
     <ClInclude Include="MyDirectX12.h" />
     <ClInclude Include="Geometory.h" />
     <ClInclude Include="MyVector_2Dor3D.h" />
