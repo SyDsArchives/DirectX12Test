@@ -167,9 +167,12 @@ private:
 	unsigned int materialNum;
 
 	//マテリアルバッファ
-	PMDMaterials material;
+	//PMDMaterials material;
 	ID3D12DescriptorHeap* materialDescHeap;
+	//ID3D12Resource* materialBuffer;
 	std::vector<ID3D12Resource*> materialBuffer;
+	//PMDMaterials* mat;
+	std::vector<PMDMaterials*> material;
 
 
 public:

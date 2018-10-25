@@ -749,7 +749,7 @@ void MyDirectX12::CreateMaterialBuffer()
 	D3D12_RESOURCE_DESC desc = {};
 	desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
 	desc.Alignment = 0;
-	desc.Width = size * pmdmaterials.size();
+	desc.Width = size;// *pmdmaterials.size();
 	desc.Height = 1;
 	desc.DepthOrArraySize = 1;
 	desc.MipLevels = 1;
@@ -758,14 +758,16 @@ void MyDirectX12::CreateMaterialBuffer()
 	desc.SampleDesc.Quality = 0;
 	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	int midx = 0;
-	materialBuffer.resize(pmdmaterials.size());
-
+	
 	if ((size * pmdmaterials.size()) % 256 != 0)
 	{
 		std::cout << "PMD Materials Size Error : Not Size 256 byte Alignment" << std::endl;
 	}
+
+	int midx = 0;
+
+	material.resize(pmdmaterials.size());
+	materialBuffer.resize(pmdmaterials.size());
 
 	for (auto& mbuff : materialBuffer)
 	{
@@ -776,16 +778,18 @@ void MyDirectX12::CreateMaterialBuffer()
 			nullptr,
 			IID_PPV_ARGS(&mbuff));
 
-		PMDMaterials* mat = nullptr;
+		result = mbuff->Map(0, nullptr, (void**)&material[midx]);
 
-		result = mbuff->Map(0, nullptr, (void**)&mat);
-		*mat = pmdmaterials[midx];
+		*material[midx] = pmdmaterials[midx];
+
 		mbuff->Unmap(0, nullptr);
+
 		++midx;
 	}
 
 	//定数バッファビューの設定
 	D3D12_CONSTANT_BUFFER_VIEW_DESC materialdesc = {};
+	materialdesc.SizeInBytes = size;
 
 	auto handle = materialDescHeap->GetCPUDescriptorHandleForHeapStart();
 	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -793,16 +797,17 @@ void MyDirectX12::CreateMaterialBuffer()
 	int idx = 0;
 	for (auto& mbuff : materialBuffer)
 	{
+		//バッファの場所を取得
 		materialdesc.BufferLocation = mbuff->GetGPUVirtualAddress();
-		materialdesc.SizeInBytes = size;
 
 		//定数バッファの生成
 		dev->CreateConstantBufferView(&materialdesc, handle);
-
+		
+		//ハンドルをずらす
 		handle.ptr += h_size;
-
-		++idx;
 	}
+
+
 }
 
 void MyDirectX12::CreateDescriptorHeapforMaterial()
