@@ -1,12 +1,6 @@
-Texture2D<float4> tex:register(t0);
 SamplerState smp:register(s0);
-
-struct Output{
-	float4 svpos:SV_POSITION;
-	float4 normal:NORMAL;
-	float4 pos:POSITION;
-	//float2 uv:TEXCOORD;
-};
+Texture2D<float4> tex:register(t0);
+Texture2D<float4> tex2:register(t1);
 
 cbuffer mat:register(b0)
 {
@@ -16,15 +10,23 @@ cbuffer mat:register(b0)
 
 cbuffer material:register(b1)
 {
-	float3 diffuse;
-	/*float alpha;
-	float specularity;
-	float3 specularityColor;*/
+	float4 diffuse;
+	float4 specular;
+	float4 ambient;
+	bool texflag;
 }
+
+struct Output {
+	float4 svpos:SV_POSITION;
+	float4 normal:NORMAL;
+	float4 pos:POSITION;
+	float2 uv:TEXCOORD;
+};
+
 
 
 //頂点シェーダ
-Output vs( float4 pos:POSITION,float4 normal:NORMAL)
+Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD)
 {
 	Output output;
 
@@ -36,6 +38,8 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL)
 	output.pos = output.svpos = viewprojpos;
 
 	output.normal = mul(world,normal);
+
+	output.uv = uv;
 	
 	return output;
 }
@@ -44,19 +48,30 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL)
 float4 ps(Output output):SV_Target
 {
 	//環境光
-	float ambient = 0.5;
+	float ambientNum = ambient;
 
 	//光源
 	float3 light = float3(-1, 1, -1);
 	light = normalize(light);
 
 	//明るさ
-	float brightness = dot(output.normal, light) + ambient;
+	float brightness = dot(output.normal.xyz, light) + ambientNum;
 
 	//RGB
-	float Red = brightness * diffuse.r;
-	float Green = brightness * diffuse.g;
-	float Blue = brightness * diffuse.b;
+	float Red = /*brightness **/ diffuse.r;
+	float Green =/* brightness **/ diffuse.g;
+	float Blue = /*brightness **/ diffuse.b;
 
-	return float4(Red, Green, Blue, 1);
+	float3 color;
+
+	//if (!texflag)
+	//{
+	//	color = float3(Red, Green, Blue) * tex.Sample(smp, output.uv).rgb;
+	//}
+	//else
+	//{
+		color = float3(Red, Green, Blue);
+	//}
+
+	return float4(color.r * brightness, color.g * brightness, color.b * brightness, 1);
 }

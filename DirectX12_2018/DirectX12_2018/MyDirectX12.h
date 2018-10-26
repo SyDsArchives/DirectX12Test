@@ -48,11 +48,11 @@ struct PMDVertex {
 
 #pragma pack(1)
 struct PMDMaterials {
-	float diffuse[3];
+	Vector3f diffuse;
 	float alpha;
 	float specularity;
-	float specularityColor[3];
-	float mirror[3];
+	Vector3f specularityColor;
+	Vector3f mirror;
 	unsigned char toonIndex;
 	unsigned char edgeFlag;
 	unsigned int faceVertCount;
@@ -60,6 +60,28 @@ struct PMDMaterials {
 };
 #pragma pack()
 
+struct MaterialColorRGBA
+{
+	MaterialColorRGBA() {}
+	MaterialColorRGBA(float r, float g, float b, float a) :
+	red(r),green(g),blue(b),alpha(a) {}
+	float red;
+	float green;
+	float blue;
+	float alpha;
+};
+
+//マテリアル情報をシェーダーに渡す用の構造体
+struct SendMaterialforShader
+{
+	SendMaterialforShader() {}
+	SendMaterialforShader(MaterialColorRGBA& dif, MaterialColorRGBA& spe, MaterialColorRGBA& amb, bool _texflag) :
+		diffuse(dif) ,specular(spe), ambient(amb), texflag(_texflag) {}
+	MaterialColorRGBA diffuse;
+	MaterialColorRGBA specular;
+	MaterialColorRGBA ambient;
+	bool texflag;
+};
 
 struct Cbuffer {
 	DirectX::XMMATRIX world;
@@ -71,7 +93,6 @@ class MyDirectX12
 private:
 	unsigned int bbindex;
 	unsigned int descriptorSizeRTV;
-	int count;
 
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
@@ -130,6 +151,7 @@ private:
 	UINT64 fenceValue;
 	void ExecuteCommand(unsigned int cmdlistnum);
 	void WaitWithFence();
+
 	//イベント
 	HANDLE evhandle;
 
@@ -137,12 +159,16 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[2] = {};
+	D3D12_ROOT_PARAMETER rootParam[3] = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 	D3D12_DESCRIPTOR_RANGE materialRange = {};
+	D3D12_DESCRIPTOR_RANGE whiteTextureRange = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
+
+	//テクスチャバッファ(白テクスチャ用)
+	ID3D12Resource* whiteTextureBuffer;
 
 	//定数バッファ 
 	ID3D12Resource* constantBuffer;
@@ -172,7 +198,8 @@ private:
 	//ID3D12Resource* materialBuffer;
 	std::vector<ID3D12Resource*> materialBuffer;
 	//PMDMaterials* mat;
-	std::vector<PMDMaterials*> material;
+	std::vector<SendMaterialforShader*> material;
+	//SendMaterialforShader sendmat;
 
 
 public:
@@ -233,8 +260,11 @@ public:
 	//レジスタ系デスクリプター
 	void CreateDescriptorHeapRegister();
 
-	//テクスチャ
+	//テクスチャバッファ
 	void CreateTextureBuffer();
+
+	//テクスチャバッファ(白テクスチャ用)
+	void CreateWhiteTextureBuffer();
 
 	//定数バッファ
 	void CreateConstantBuffer();

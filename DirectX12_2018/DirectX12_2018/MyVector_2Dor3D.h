@@ -4,7 +4,7 @@
 template<typename T>
 struct Vector3D {
 	Vector3D() :x(0), y(0), z(0) {}
-	Vector3D(int inx, int iny, int inz) :x(inx), y(iny), z(inz) {}
+	Vector3D(T inx, T iny, T inz) :x(inx), y(iny), z(inz) {}
 	T x, y, z;
 	void operator+=(const Vector3D<T>& inv)
 	{
