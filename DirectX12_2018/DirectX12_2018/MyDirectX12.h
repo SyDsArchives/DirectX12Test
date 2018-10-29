@@ -118,7 +118,6 @@ private:
 	//レンダーターゲット
 	std::vector<ID3D12Resource*> renderTarget;
 	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
-	//CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart());
 
 	//頂点バッファ
 	D3D12_VERTEX_BUFFER_VIEW vbView = {};
@@ -174,12 +173,8 @@ private:
 	ID3D12Resource* constantBuffer;
 	Cbuffer wvp = {};
 	Cbuffer* cbuff;
-	//DirectX::XMMATRIX* mat = nullptr;
 
-	//テクスチャリソース
-	/*ID3D12DescriptorHeap* srvDescHeap;*/
-
-	//シェーダーリソースビュー
+	//各種デスクヒープ
 	ID3D12DescriptorHeap* rtvDescHeap;//RTV(レンダーターゲット)デスクリプタヒープ
 	ID3D12DescriptorHeap* dsvDescHeap;//DSV(深度)デスクリプタヒープ
 	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
@@ -193,13 +188,9 @@ private:
 	unsigned int materialNum;
 
 	//マテリアルバッファ
-	//PMDMaterials material;
 	ID3D12DescriptorHeap* materialDescHeap;
-	//ID3D12Resource* materialBuffer;
 	std::vector<ID3D12Resource*> materialBuffer;
-	//PMDMaterials* mat;
 	std::vector<SendMaterialforShader*> material;
-	//SendMaterialforShader sendmat;
 
 
 public:

@@ -57,21 +57,16 @@ float4 ps(Output output):SV_Target
 	//–¾‚é‚³
 	float brightness = dot(output.normal.xyz, light) + ambientNum;
 
-	//RGB
-	float Red = /*brightness **/ diffuse.r;
-	float Green =/* brightness **/ diffuse.g;
-	float Blue = /*brightness **/ diffuse.b;
-
 	float3 color;
 
-	//if (!texflag)
-	//{
-	//	color = float3(Red, Green, Blue) * tex.Sample(smp, output.uv).rgb;
-	//}
-	//else
-	//{
-		color = float3(Red, Green, Blue);
-	//}
+	if (texflag)
+	{
+		color = diffuse * tex.Sample(smp, output.uv).rgb;
+	}
+	else
+	{
+		color = diffuse;
+	}
 
 	return float4(color.r * brightness, color.g * brightness, color.b * brightness, 1);
 }

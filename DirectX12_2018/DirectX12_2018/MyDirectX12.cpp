@@ -3,7 +3,7 @@
 #include "d3dx12.h"
 #include <iostream>
 
-//#include "LoadImageFile.h"
+#include "LoadImageFile.h"
 
 
 #include "DirectXTex.h"
@@ -72,9 +72,8 @@ void MyDirectX12::InLoopDx12(float angle)
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	wvp.world = DirectX::XMMatrixRotationY(angle);
+	//wvp.world = DirectX::XMMatrixRotationY(angle);
 
-	//wvp.world = DirectX::XMMatrixIdentity();
 	memcpy(cbuff, &wvp, sizeof(wvp));
 
 	//背景色
@@ -402,31 +401,16 @@ void MyDirectX12::CreateTextureBuffer()
 {
 	HRESULT result = S_OK;
 
-	//bmp
-	//テクスチャの読み込み
-	BITMAPFILEHEADER bmpFileHeader = {};
-	BITMAPINFOHEADER bmpInfoHeader = {};
+	//イメージ読み込み用クラス
+	LoadImageFile lif;
+	
+	const char* fileAddress;
 
-	std::vector<char> imgdata;
-
-	FILE* fp;
-	fp = fopen("resource/img/eye2.bmp", "rb");
-
-	fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, fp);
-	fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, fp);
-	imgdata.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
-	//反転読み込み防止のため一つずつ読み込む
-	for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
-	{
-		for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
-		{
-			unsigned int address = line * bmpInfoHeader.biWidth * 4;
-			imgdata[address + count] = 0;
-			fread(&imgdata[address + count + 1], sizeof(unsigned char), 3, fp);
-		}
-	}
-	fclose(fp);
-
+	//ファイルアドレスの取得
+	//fileAddress = lif.SearchImageFile(pmdmaterials[5].textureFileName);
+	
+	ImageFileData imgData = lif.Load("resource/img/eye2.bmp");
+	
 	D3D12_HEAP_PROPERTIES heapprop = {};
 	heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
 	heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
@@ -436,8 +420,8 @@ void MyDirectX12::CreateTextureBuffer()
 
 	D3D12_RESOURCE_DESC texResourceDesc = {};
 	texResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	texResourceDesc.Width = bmpInfoHeader.biWidth;//画像の横幅
-	texResourceDesc.Height = bmpInfoHeader.biHeight;//画像の縦幅
+	texResourceDesc.Width = imgData.width;//画像の横幅
+	texResourceDesc.Height = imgData.height;//画像の縦幅
 	texResourceDesc.DepthOrArraySize = 1;
 	texResourceDesc.MipLevels = 1;
 	texResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -463,7 +447,7 @@ void MyDirectX12::CreateTextureBuffer()
 	box.bottom = (resdesc.Height);
 	box.front = 0;
 	box.back = 1;
-	result = textureBuffer->WriteToSubresource(0, &box, &imgdata[0], 4 * box.right, bmpInfoHeader.biSizeImage);
+	result = textureBuffer->WriteToSubresource(0, &box, imgData.data.data(), 4 * box.right, imgData.imageSize);
 
 	//テクスチャのフェンス(待ち)
 	cmdList->ResourceBarrier(1,
@@ -475,63 +459,18 @@ void MyDirectX12::CreateTextureBuffer()
 	WaitWithFence();
 
 	//シェーダリソースビュー
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = {};
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = 1;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = {};
+	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	desc.Texture2D.MipLevels = 1;
+	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-	srvHandle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	dev->CreateShaderResourceView(textureBuffer, &srvDesc, srvHandle);
-}
+	handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 
-void MyDirectX12::CreateWhiteTextureBuffer()
-{
-
-	HRESULT result = S_OK;
-
-	std::vector<unsigned char> data(4*4*4);
-	std::fill(data.begin(), data.end(), 0xff);
-
-	D3D12_HEAP_PROPERTIES prop = {};
-	prop.Type = D3D12_HEAP_TYPE_CUSTOM;
-	prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-	prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-	prop.CreationNodeMask = 1;
-	prop.VisibleNodeMask = 1;
-
-	D3D12_RESOURCE_DESC Desc = {};
-	Desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	Desc.Width = 8;//画像の横幅
-	Desc.Height = 8;//画像の縦幅
-	Desc.DepthOrArraySize = 1;
-	Desc.MipLevels = 1;
-	Desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	Desc.SampleDesc.Count = 1;
-	Desc.SampleDesc.Quality = 0;
-	Desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-	Desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-
-	result = dev->CreateCommittedResource(&prop,
-		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		&Desc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&whiteTextureBuffer));
-
-	result = whiteTextureBuffer->WriteToSubresource(0, nullptr, data.data(), 4*4, 4*4*4);
-
-	//テクスチャのフェンス(待ち)
-	cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(whiteTextureBuffer,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
-	cmdList->Close();
-	ExecuteCommand(1);
-	WaitWithFence();
-
+	dev->CreateShaderResourceView(textureBuffer, &desc, handle);
 }
 
 void MyDirectX12::LoadPMDModelData()
@@ -834,12 +773,7 @@ void MyDirectX12::CreateMaterialBuffer()
 		float ambient = 0.5f;
 		MaterialColorRGBA ambientData(ambient, ambient, ambient, ambient);
 
-		bool texflag = false;
-
-		if(pmdmaterials[midx].textureFileName[0] != '\0')
-		{ 
-			texflag = true;
-		}
+		bool texflag = pmdmaterials[midx].textureFileName[0] != '\0';
 
 		SendMaterialforShader sendmat(diffuse, specular, ambientData, texflag);
 
@@ -871,8 +805,75 @@ void MyDirectX12::CreateMaterialBuffer()
 		//ハンドルをずらす
 		handle.ptr += h_size;
 	}
+}
 
+void MyDirectX12::CreateWhiteTextureBuffer()
+{
+	LoadImageFile lif;
+	ImageFileData imgData = lif.Load("resource/img/whitetexture.bmp");
 
+	HRESULT result = S_OK;
+
+	D3D12_HEAP_PROPERTIES prop = {};
+	prop.Type = D3D12_HEAP_TYPE_CUSTOM;
+	prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	prop.CreationNodeMask = 1;
+	prop.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC Desc = {};
+	Desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	Desc.Width = imgData.width;//画像の横幅
+	Desc.Height = imgData.height;//画像の縦幅
+	Desc.DepthOrArraySize = 1;
+	Desc.MipLevels = 1;
+	Desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	Desc.SampleDesc.Count = 1;
+	Desc.SampleDesc.Quality = 0;
+	Desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	Desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	result = dev->CreateCommittedResource(&prop,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&Desc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&whiteTextureBuffer));
+
+	D3D12_RESOURCE_DESC resdesc = {};
+	resdesc = whiteTextureBuffer->GetDesc();
+	D3D12_BOX box = {};
+	box.left = 0;
+	box.right = (resdesc.Width);
+	box.top = 0;
+	box.bottom = (resdesc.Height);
+	box.front = 0;
+	box.back = 1;
+
+	result = whiteTextureBuffer->WriteToSubresource(0, &box, imgData.data.data(), 4 * box.right, imgData.imageSize);
+	
+	//テクスチャのフェンス(待ち)
+	cmdList->ResourceBarrier(1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(whiteTextureBuffer,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+	cmdList->Close();
+	ExecuteCommand(1);
+	WaitWithFence();
+
+	//シェーダリソースビュー
+	D3D12_CPU_DESCRIPTOR_HANDLE handle = {};
+	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	desc.Texture2D.MipLevels = 1;
+	desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	handle.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
+
+	dev->CreateShaderResourceView(whiteTextureBuffer, &desc, handle);
 }
 
 void MyDirectX12::CreateDescriptorHeapRegister()
@@ -880,7 +881,7 @@ void MyDirectX12::CreateDescriptorHeapRegister()
 	HRESULT result = S_OK;
 	//registerのCBV,SRV,UAV用のDescriptorHeapDescの生成
 	D3D12_DESCRIPTOR_HEAP_DESC registerHeapDesc = {};
-	registerHeapDesc.NumDescriptors = 2;
+	registerHeapDesc.NumDescriptors = 3;
 	registerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	registerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -950,10 +951,10 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[1].DescriptorTable.pDescriptorRanges = &materialRange;//対応するレンジへのポインタ
 	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	//whitetexture
-	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
-	rootParam[1].DescriptorTable.pDescriptorRanges = &whiteTextureRange;//対応するレンジへのポインタ
-	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[2].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[2].DescriptorTable.pDescriptorRanges = &whiteTextureRange;//対応するレンジへのポインタ
+	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignature()

@@ -13,33 +13,70 @@ LoadImageFile::~LoadImageFile()
 {
 }
 
-void LoadImageFile::Load(std::string& _filename)
+const char* LoadImageFile::SearchImageFile(const char* _filename)
 {
-	//bmp
-	//テクスチャの読み込み
-	BITMAPFILEHEADER bmpFileHeader = {};
-	BITMAPINFOHEADER bmpInfoHeader = {};
+	//フォルダ名文字列の定義
+	const char* fileFolder = "resource/img/";
 
-	//FILE* tiles;
-	//tiles = fopen("resource/img/tiles.bmp", "rb");
-	std::vector<char> imgdata;
+	//返り値用変数の定義、フォルダ名文字列の追加
+	std::string fileName = fileFolder;
 	
-	FILE* fp;
-	//fp = fopen(_filename.c_str, "rb");
+	//ファイル名文字列の追加
+	fileName.append(_filename);
 
-	fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, fp);
-	fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, fp);
-	imgdata.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
-	//反転読み込み防止のため一つずつ読み込む
-	for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
+	const char* ret = fileName.c_str();
+
+	//ファイルのアドレスを返す
+	return ret;
+}
+
+ImageFileData LoadImageFile::Load(const char* _filename)
+{
+	ImageFileData ret;
+
+	std::string filename = _filename;
+	std::string	extension = filename.substr(filename.rfind(".",filename.size()));
+
+	//bmpファイルの読み込み
+	if (extension == ".bmp")
 	{
-		for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
+		//bmpheader変数の定義
+		BITMAPFILEHEADER bmpFileHeader = {};
+		BITMAPINFOHEADER bmpInfoHeader = {};
+
+		//
+		std::vector<char> data;
+		
+		FILE* fp;
+		fp = fopen(_filename, "rb");
+
+		//header各種へのbmpデータ読み込み
+		fread(&bmpFileHeader, sizeof(bmpFileHeader), 1, fp);
+		fread(&bmpInfoHeader, sizeof(bmpInfoHeader), 1, fp);
+
+		//サイズ確保
+		data.resize(bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 4);
+		ret.data.resize(data.size());
+
+		//反転読み込み防止のため一つずつ読み込む
+		for (int line = bmpInfoHeader.biHeight - 1; line >= 0; --line)
 		{
-			unsigned int address = line * bmpInfoHeader.biWidth * 4;
-			imgdata[address + count] = 0;
-			fread(&imgdata[address + count + 1], sizeof(unsigned char), 3, fp);
+			for (int count = 0; count < bmpInfoHeader.biWidth * 4; count += 4)
+			{
+				unsigned int address = line * bmpInfoHeader.biWidth * 4;
+				data[address + count] = 0;
+				fread(&data[address + count + 1], sizeof(unsigned char), 3, fp);
+			}
 		}
+		fclose(fp);
+
+		//返り値用変数への代入
+		ret.imageSize = bmpInfoHeader.biSizeImage;
+		ret.width = bmpInfoHeader.biWidth;
+		ret.height = bmpInfoHeader.biHeight;
+		std::copy(data.begin(), data.end(), ret.data.begin());
 	}
-	fclose(fp);
+
+	return ret;
 }
 
