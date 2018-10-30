@@ -16,7 +16,7 @@ public:
 	LoadImageFile();
 	~LoadImageFile();
 
-	const char* SearchImageFile(const char * _filename);
+	std::string SearchImageFile(const char* _filename);
 
 	ImageFileData Load(const char* _filename);
 };

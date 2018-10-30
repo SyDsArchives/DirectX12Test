@@ -75,12 +75,11 @@ struct MaterialColorRGBA
 struct SendMaterialforShader
 {
 	SendMaterialforShader() {}
-	SendMaterialforShader(MaterialColorRGBA& dif, MaterialColorRGBA& spe, MaterialColorRGBA& amb, bool _texflag) :
-		diffuse(dif) ,specular(spe), ambient(amb), texflag(_texflag) {}
+	SendMaterialforShader(MaterialColorRGBA& dif, MaterialColorRGBA& spe, MaterialColorRGBA& amb):
+		diffuse(dif) ,specular(spe), ambient(amb) {}
 	MaterialColorRGBA diffuse;
 	MaterialColorRGBA specular;
 	MaterialColorRGBA ambient;
-	bool texflag;
 };
 
 struct Cbuffer {
@@ -111,9 +110,6 @@ private:
 
 	//スワップチェイン
 	IDXGISwapChain4* swapChain;
-
-	//デスクリプターヒープ
-	ID3D12DescriptorHeap* descriptorHeap = nullptr;
 
 	//レンダーターゲット
 	std::vector<ID3D12Resource*> renderTarget;
@@ -158,16 +154,13 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[3] = {};
+	D3D12_ROOT_PARAMETER rootParam[2] = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
-	D3D12_DESCRIPTOR_RANGE materialRange = {};
+	D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
 	D3D12_DESCRIPTOR_RANGE whiteTextureRange = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
-
-	//テクスチャバッファ(白テクスチャ用)
-	ID3D12Resource* whiteTextureBuffer;
 
 	//定数バッファ 
 	ID3D12Resource* constantBuffer;

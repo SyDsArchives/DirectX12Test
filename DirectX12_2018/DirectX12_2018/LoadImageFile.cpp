@@ -13,21 +13,21 @@ LoadImageFile::~LoadImageFile()
 {
 }
 
-const char* LoadImageFile::SearchImageFile(const char* _filename)
+std::string LoadImageFile::SearchImageFile(const char* _filename)
 {
 	//フォルダ名文字列の定義
 	const char* fileFolder = "resource/img/";
 
 	//返り値用変数の定義、フォルダ名文字列の追加
 	std::string fileName = fileFolder;
-	
+
 	//ファイル名文字列の追加
 	fileName.append(_filename);
 
-	const char* ret = fileName.c_str();
+	//const char* ret = fileName.c_str();
 
 	//ファイルのアドレスを返す
-	return ret;
+	return fileName;
 }
 
 ImageFileData LoadImageFile::Load(const char* _filename)

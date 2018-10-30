@@ -13,7 +13,6 @@ cbuffer material:register(b1)
 	float4 diffuse;
 	float4 specular;
 	float4 ambient;
-	bool texflag;
 }
 
 struct Output {
@@ -58,15 +57,10 @@ float4 ps(Output output):SV_Target
 	float brightness = dot(output.normal.xyz, light) + ambientNum;
 
 	float3 color;
+	float alpha;
 
-	if (texflag)
-	{
-		color = diffuse * tex.Sample(smp, output.uv).rgb;
-	}
-	else
-	{
-		color = diffuse;
-	}
+	color = diffuse.rgb * tex2.Sample(smp, output.uv).rgb;
+	alpha = diffuse.a;
 
-	return float4(color.r * brightness, color.g * brightness, color.b * brightness, 1);
+	return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
 }
