@@ -147,17 +147,13 @@ private:
 	void ExecuteCommand(unsigned int cmdlistnum);
 	void WaitWithFence();
 
-	//イベント
-	HANDLE evhandle;
-
 	//サンプラー
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
 	D3D12_ROOT_PARAMETER rootParam[2] = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
-	D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
-	D3D12_DESCRIPTOR_RANGE whiteTextureRange = {};
+	D3D12_DESCRIPTOR_RANGE materialRange[1] = {};
 
 	//テクスチャバッファ
 	ID3D12Resource* textureBuffer;
@@ -184,7 +180,6 @@ private:
 	ID3D12DescriptorHeap* materialDescHeap;
 	std::vector<ID3D12Resource*> materialBuffer;
 	std::vector<SendMaterialforShader*> material;
-
 
 public:
 	MyDirectX12(HWND _hwnd);
@@ -246,9 +241,6 @@ public:
 
 	//テクスチャバッファ
 	void CreateTextureBuffer();
-
-	//テクスチャバッファ(白テクスチャ用)
-	void CreateWhiteTextureBuffer();
 
 	//定数バッファ
 	void CreateConstantBuffer();

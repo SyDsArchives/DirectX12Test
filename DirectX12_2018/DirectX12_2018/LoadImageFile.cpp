@@ -1,7 +1,7 @@
 #include "LoadImageFile.h"
 #include <Windows.h>
 #include <stdio.h>
-#include <vector>
+
 
 
 LoadImageFile::LoadImageFile()
@@ -20,7 +20,7 @@ std::string LoadImageFile::SearchImageFile(const char* _filename)
 
 	//返り値用変数の定義、フォルダ名文字列の追加
 	std::string fileName = fileFolder;
-
+	
 	//ファイル名文字列の追加
 	fileName.append(_filename);
 
