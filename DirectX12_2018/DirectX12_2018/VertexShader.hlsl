@@ -1,5 +1,6 @@
 SamplerState smp:register(s0);
 Texture2D<float4> tex:register(t0);
+Texture2D<float4> tex2:register(t1);
 
 cbuffer mat:register(b0)
 {
@@ -58,7 +59,7 @@ float4 ps(Output output):SV_Target
 	float3 color;
 	float alpha;
 
-	color = diffuse.rgb * tex.Sample(smp, output.uv).rgb;
+	color = diffuse.rgb * tex2.Sample(smp, output.uv).rgb;
 
 	alpha = diffuse.a;
 
