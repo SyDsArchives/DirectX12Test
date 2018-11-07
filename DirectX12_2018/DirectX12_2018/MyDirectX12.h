@@ -151,9 +151,9 @@ private:
 	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[3] = {};
+	D3D12_ROOT_PARAMETER rootParam[2] = {};
 	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
-	D3D12_DESCRIPTOR_RANGE materialRange[1] = {};
+	D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
 	D3D12_DESCRIPTOR_RANGE whiteTextureRange[1] = {};
 
 	//テクスチャバッファ
@@ -164,9 +164,7 @@ private:
 	Cbuffer wvp = {};
 	Cbuffer* cbuff;
 
-	//各種デスクヒープ
-	ID3D12DescriptorHeap* rtvDescHeap;//RTV(レンダーターゲット)デスクリプタヒープ
-	ID3D12DescriptorHeap* dsvDescHeap;//DSV(深度)デスクリプタヒープ
+	//デスクヒープ
 	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
 	
 	//PMD関連
@@ -183,7 +181,6 @@ private:
 	std::vector<SendMaterialforShader*> material;
 
 	//白テクスチャ
-	ID3D12DescriptorHeap* whiteTextureDescHeap;
 	ID3D12Resource* whiteTextureBuffer;
 
 public:
@@ -265,9 +262,5 @@ public:
 	//マテリアルバッファ
 	void CreateMaterialBuffer();
 	void CreateDescriptorHeapforMaterial();
-	void PMDMaterialUpdate(std::vector<PMDMaterials>& materials);
-
-	//白テクスチャ
-	void CreateDescriptorHeapforWhiteTexture();
 };
 
