@@ -60,6 +60,23 @@ struct PMDMaterials {
 };
 #pragma pack()
 
+#pragma pack(1)
+struct BoneProperty {
+	char boneName[20];//ボーン名
+	unsigned short parentBoneIndex;//親ボーン番号
+	unsigned short tailPosBoneIndex;//tail位置のボーン番号
+	unsigned char boneType;//ボーンの種類 //0:回転 1:回転と移動 2:IK 3:不明 4:IK影響下 5:回転影響下 6:IK接続先 7:非表示
+	unsigned short parentBoneIndex_IK;//IKボーン番号
+	Vector3f boneHeadPos;//xyzのボーンのヘッドの位置
+};
+#pragma pack()
+
+struct PMDBones
+{
+	unsigned short boneNum;//ボーン数
+	std::vector<BoneProperty> boneProp;//ボーンデータ
+};
+
 struct MaterialColorRGBA
 {
 	MaterialColorRGBA() {}
@@ -183,6 +200,9 @@ private:
 	//白テクスチャ
 	ID3D12Resource* whiteTextureBuffer;
 
+	//ボーン関連
+	PMDBones pmdbones;
+
 public:
 	MyDirectX12(HWND _hwnd);
 	~MyDirectX12();
@@ -257,7 +277,7 @@ public:
 	void CreatePiplineState();
 
 	//モデル関連
-	void LoadPMDModelData();
+	void LoadPMDModelData(const char * _modelFilename);
 
 	//マテリアルバッファ
 	void CreateMaterialBuffer();

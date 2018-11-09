@@ -2,16 +2,15 @@
 #include "Geometory.h"
 #include "d3dx12.h"
 #include <iostream>
-
 #include "LoadImageFile.h"
-
 #include "DirectXTex.h"
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"d3dcompiler.lib")
-
 #pragma comment(lib,"DirectXTex.lib")
+
+const char* fname = "resource/model/miku/初音ミク.pmd";
 
 //シェーダへ送る情報(頂点レイアウト)
 D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
@@ -22,14 +21,20 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 
 const int screenBufferNum = 2;//画面バッファの数
 
-
-MyDirectX12::MyDirectX12(HWND _hwnd) :bbindex(0), descriptorSizeRTV(0), hwnd(_hwnd), dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
-cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), descriptorHeapRTV(nullptr), swapChain(nullptr), rootSignature(nullptr),
-fence(nullptr), fenceValue(0), piplineState(nullptr), textureBuffer(nullptr), rgstDescHeap(nullptr),
-constantBuffer(nullptr), vertexBuffer(nullptr), vertexShader(nullptr), pixelShader(nullptr), cbuff(nullptr),depthBuffer(nullptr), descriptorHeapDSB(nullptr),
-materialDescHeap(nullptr),whiteTextureBuffer(nullptr)
+MyDirectX12::MyDirectX12(HWND _hwnd) : hwnd(_hwnd),
+bbindex(0), descriptorSizeRTV(0),
+dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
+cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), 
+descriptorHeapRTV(nullptr), rgstDescHeap(nullptr), descriptorHeapDSB(nullptr),
+swapChain(nullptr), 
+rootSignature(nullptr),
+piplineState(nullptr),
+fence(nullptr), fenceValue(0), 
+textureBuffer(nullptr), 
+vertexShader(nullptr), pixelShader(nullptr), 
+constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr)
 {
-	MyDirectX12::LoadPMDModelData();
+	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
 	MyDirectX12::CreateCommandQueue();
@@ -190,7 +195,7 @@ void MyDirectX12::WaitWithFence()
 
 	while (fence->GetCompletedValue() != fenceValue)
 	{
-		//std::cout << "ふぇんすだよ" << std::endl;
+		//待ちの間ループする
 	}
 
 	bbindex = swapChain->GetCurrentBackBufferIndex();
@@ -266,6 +271,12 @@ void MyDirectX12::CreateDevice()
 			level = lev;
 			break;
 		}
+		if (result != S_OK)
+		{
+			const char* er_title = " CreateDevice関数内エラー";
+			const char* er_message = "S_OK以外が返されました";
+			int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+		}
 	}
 }
 
@@ -277,6 +288,12 @@ void MyDirectX12::CreateCommandAllocator()
 
 	result = dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, 
 		IID_PPV_ARGS(&cmdAllocator));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateCommandAllocator関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateCommandQueue()
@@ -287,6 +304,12 @@ void MyDirectX12::CreateCommandQueue()
 
 	D3D12_COMMAND_QUEUE_DESC queueDesc = {};
 	result = dev->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&cmdQueue));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateCommandQueue関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateCommandList()
@@ -301,6 +324,12 @@ void MyDirectX12::CreateCommandList()
 		cmdAllocator,
 		nullptr,
 		IID_PPV_ARGS(&cmdList));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateCommandList関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateSwapChain()
@@ -324,6 +353,12 @@ void MyDirectX12::CreateSwapChain()
 	swapChainDesc.Flags = 0;
 
 	result = dxgiFactory->CreateSwapChainForHwnd(cmdQueue, hwnd, &swapChainDesc, nullptr, nullptr, (IDXGISwapChain1**)(&swapChain));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateSwapChain関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateDescriptorHeapRTV()
@@ -339,6 +374,12 @@ void MyDirectX12::CreateDescriptorHeapRTV()
 	descHeapDesc.NodeMask = 0;
 
 	result = dev->CreateDescriptorHeap(&descHeapDesc, IID_PPV_ARGS(&descriptorHeapRTV));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDescriptorHeapRTV関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateRenderTarget()
@@ -357,6 +398,13 @@ void MyDirectX12::CreateRenderTarget()
 	for (int i = 0; i < rtvNum; ++i)
 	{
 		result = swapChain->GetBuffer(i, IID_PPV_ARGS(&renderTarget[i]));
+		if (result != S_OK)
+		{
+			const char* er_title = " CreateRenderTarget関数内エラー";
+			const char* er_message = "S_OK以外が返されました";
+			int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+		}
+
 		dev->CreateRenderTargetView(renderTarget[i], nullptr, descriptorHandle);
 		descriptorHandle.ptr += descriptorSizeRTV;
 	}
@@ -367,6 +415,12 @@ void MyDirectX12::CreateFence()
 	HRESULT result = S_OK;
 
 	result = dev->CreateFence(fenceValue,D3D12_FENCE_FLAG_NONE,IID_PPV_ARGS(&fence));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateFence関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::SetViewPort()
@@ -393,10 +447,25 @@ void MyDirectX12::CreateShader()
 {
 	HRESULT result = S_OK;
 	//シェーダー
+	//頂点シェーダ
 	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_DEBUG |
 		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShader, nullptr);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateShader関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+
+	//ピクセルシェーダ
 	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_DEBUG |
 		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShader, nullptr);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateShader関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateTextureBuffer()
@@ -445,6 +514,12 @@ void MyDirectX12::CreateTextureBuffer()
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&textureBuffer));
+		if (result != S_OK)
+		{
+			const char* er_title = " CreateTextureBuffer関数内エラー";
+			const char* er_message = "S_OK以外が返されました";
+			int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+		}
 	}
 
 	{
@@ -459,6 +534,12 @@ void MyDirectX12::CreateTextureBuffer()
 		box.front = 0;
 		box.back = 1;
 		result = textureBuffer->WriteToSubresource(0, &box, imgData.data.data(), 4 * box.right, imgData.imageSize);
+		if (result != S_OK)
+		{
+			const char* er_title = " CreateTextureBuffer関数内エラー";
+			const char* er_message = "S_OK以外が返されました";
+			int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+		}
 	}
 
 	//テクスチャのフェンス(待ち)
@@ -505,8 +586,20 @@ void MyDirectX12::CreateWhiteTextureBuffer()
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&whiteTextureBuffer));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateWhiteTextureBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	result = whiteTextureBuffer->WriteToSubresource(0, nullptr, whiteTexData.data(), 4, 4 * 4);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateWhiteTextureBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	//テクスチャのフェンス(待ち)
 	cmdList->ResourceBarrier(1,
@@ -519,17 +612,21 @@ void MyDirectX12::CreateWhiteTextureBuffer()
 }
 
 
-void MyDirectX12::LoadPMDModelData()
+void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
 {
 	//pmd(MyVectorStruct)
-	FILE* miku_pmd = fopen("resource/model/miku/初音ミク.pmd", "rb");
+	FILE* miku_pmd = fopen(_modelFilename, "rb");
 
+	//モデルのデータフォーマット名を読み込む
 	fread(&magic, sizeof(magic), 1, miku_pmd);
+
+	//モデルの情報を読み込む
 	fread(&pmddata, sizeof(pmddata), 1, miku_pmd);
 
-	//頂点読み込み
+	//頂点数分メモリを確保する
 	pmdvertices.resize(pmddata.vertexNum);
 
+	//頂点読み込み
 	{
 		for (UINT i = 0; i < pmddata.vertexNum; ++i)
 		{
@@ -542,6 +639,7 @@ void MyDirectX12::LoadPMDModelData()
 	unsigned int indexNum = 0;
 	fread(&indexNum, sizeof(unsigned int), 1, miku_pmd);
 
+	//インデックス数分メモリを確保する
 	pmdindices.resize(indexNum);
 
 	//各頂点毎のインデックス情報を読み込む
@@ -552,11 +650,16 @@ void MyDirectX12::LoadPMDModelData()
 		}
 	}
 
+
+	//マテリアルの読み込み
+	//マテリアル数の読み込み
 	materialNum = 0;
 	fread(&materialNum, sizeof(unsigned int), 1, miku_pmd);
 
+	//マテリアル数分メモリを確保する
 	pmdmaterials.resize(materialNum);
 
+	//マテリアル数分読み込む
 	{
 		for(int i = 0; i < materialNum; ++i)
 		{
@@ -569,6 +672,21 @@ void MyDirectX12::LoadPMDModelData()
 			fread(&pmdmaterials[i].edgeFlag, sizeof(pmdmaterials[i].edgeFlag), 1, miku_pmd);
 			fread(&pmdmaterials[i].faceVertCount, sizeof(pmdmaterials[i].faceVertCount), 1, miku_pmd);
 			fread(&pmdmaterials[i].textureFileName, sizeof(pmdmaterials[i].textureFileName), 1, miku_pmd);
+		}
+	}
+
+	//ボーン読み込み
+	//ボーン数の読み込み
+	fread(&pmdbones.boneNum, sizeof(pmdbones.boneNum), 1, miku_pmd);
+
+	//ボーンの数分メモリを確保する
+	pmdbones.boneProp.resize(pmdbones.boneNum);
+
+	//ボーン情報分読み込む
+	{
+		for (int i = 0; i < pmdbones.boneNum; ++i)
+		{
+			fread(&pmdbones.boneProp[i], sizeof(BoneProperty), 1, miku_pmd);
 		}
 	}
 
@@ -589,10 +707,23 @@ void MyDirectX12::CreateVertexBuffer()
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&vertexBuffer));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateVertexBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	PMDVertex* pmdvert = nullptr;
 	//mapで頂点情報をGPUに送る
 	result = vertexBuffer->Map(0, nullptr, (void**)(&pmdvert));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateVertexBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+
 	std::copy(pmdvertices.begin(), pmdvertices.end(), pmdvert);
 	vertexBuffer->Unmap(0, nullptr);
 
@@ -617,9 +748,22 @@ void MyDirectX12::CreateIndexBuffer()
 		D3D12_RESOURCE_STATE_GENERIC_READ,//???
 		nullptr,//nullptrで良い
 		IID_PPV_ARGS(&indexBuffer));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateIndexBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	unsigned short* idxdata = nullptr;
 	result = indexBuffer->Map(0, nullptr, (void**)&idxdata);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateIndexBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+
 	std::copy(pmdindices.begin(), pmdindices.end(), idxdata);
 	indexBuffer->Unmap(0, nullptr);
 
@@ -663,6 +807,12 @@ void MyDirectX12::CreateDepthBuffer()
 										 D3D12_RESOURCE_STATE_DEPTH_WRITE,
 										 &depthClearValue,
 										 IID_PPV_ARGS(&depthBuffer));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDepthBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	//深度バッファ用デスクリプターの生成
 	D3D12_DESCRIPTOR_HEAP_DESC descDescriptorHeapDSB = {};
@@ -672,6 +822,12 @@ void MyDirectX12::CreateDepthBuffer()
 	descDescriptorHeapDSB.NodeMask = 0;
 
 	result = dev->CreateDescriptorHeap(&descDescriptorHeapDSB, IID_PPV_ARGS(&descriptorHeapDSB));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDepthBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	//深度バッファビューの生成
 	dbView.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
@@ -716,9 +872,21 @@ void MyDirectX12::CreateConstantBuffer()
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&constantBuffer));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateConstantBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	//マップする(定数バッファはアプリケーション終了までunmapを行わない)
 	result = constantBuffer->Map(0, nullptr, (void**)&cbuff);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateConstantBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	//定数バッファビューの設定
 	D3D12_CONSTANT_BUFFER_VIEW_DESC constdesc = {};
@@ -728,6 +896,7 @@ void MyDirectX12::CreateConstantBuffer()
 	auto handle = rgstDescHeap->GetCPUDescriptorHandleForHeapStart();
 	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	handle.ptr += h_size;
+
 	//定数バッファの生成
 	dev->CreateConstantBufferView(&constdesc, handle);
 
@@ -782,11 +951,6 @@ void MyDirectX12::CreateMaterialBuffer()
 	desc.SampleDesc.Quality = 0;
 	desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
 	desc.Flags = D3D12_RESOURCE_FLAG_NONE;
-	
-	if ((size * pmdmaterials.size()) % 256 != 0)
-	{
-		std::cout << "PMD Materials Size Error : Not Size 256 byte Alignment" << std::endl;
-	}
 
 	int midx = 0;
 
@@ -801,6 +965,12 @@ void MyDirectX12::CreateMaterialBuffer()
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&mbuff));
+		if (result != S_OK)
+		{
+			const char* er_title = " CreateMaterialBuffer関数内エラー";
+			const char* er_message = "S_OK以外が返されました";
+			int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+		}
 
 		MaterialColorRGBA diffuse(
 			pmdmaterials[midx].diffuse.x, 
@@ -885,6 +1055,12 @@ void MyDirectX12::CreateDescriptorHeapRegister()
 	registerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
 	result = dev->CreateDescriptorHeap(&registerHeapDesc, IID_PPV_ARGS(&rgstDescHeap));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDescriptorHeapRegister関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateDescriptorHeapforMaterial()
@@ -900,6 +1076,12 @@ void MyDirectX12::CreateDescriptorHeapforMaterial()
 	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
 	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&materialDescHeap));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDescriptorHeapforMaterial関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateRootParameter()
@@ -972,10 +1154,22 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.pParameters = rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateRootSignature関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 
 	result = dev->CreateRootSignature(0, signature->GetBufferPointer(),
 		signature->GetBufferSize(),
 		IID_PPV_ARGS(&rootSignature));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateRootSignature関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 
@@ -1015,5 +1209,11 @@ void MyDirectX12::CreatePiplineState()
 
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreatePiplineState関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
