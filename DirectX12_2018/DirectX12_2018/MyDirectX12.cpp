@@ -32,8 +32,10 @@ piplineState(nullptr),
 fence(nullptr), fenceValue(0), 
 textureBuffer(nullptr), 
 vertexShader(nullptr), pixelShader(nullptr), 
-constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr)
+constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr),
+pmx(new PMX())
 {
+	pmx->Load();
 	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();

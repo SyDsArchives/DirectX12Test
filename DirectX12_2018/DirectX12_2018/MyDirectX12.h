@@ -11,6 +11,8 @@
 #include <vector>
 #include <functional>
 
+#include "PMX.h"
+
 struct Vertex{
 	DirectX::XMFLOAT3 pos;//ç¿ïW
 	DirectX::XMFLOAT2 uv;
@@ -107,6 +109,8 @@ struct Cbuffer {
 class MyDirectX12
 {
 private:
+	PMX* pmx;
+
 	unsigned int bbindex;
 	unsigned int descriptorSizeRTV;
 

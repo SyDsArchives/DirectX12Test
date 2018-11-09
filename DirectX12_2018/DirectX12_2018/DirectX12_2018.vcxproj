@@ -131,6 +131,8 @@
     <ClCompile Include="main.cpp">
       <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
+    <ClCompile Include="PMD.cpp" />
+    <ClCompile Include="PMX.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Library\DirectXTex-master\DirectXTex\DirectXTex.h" />
@@ -140,6 +142,8 @@
     <ClInclude Include="MyDirectX12.h" />
     <ClInclude Include="Geometory.h" />
     <ClInclude Include="MyVector_2Dor3D.h" />
+    <ClInclude Include="PMD.h" />
+    <ClInclude Include="PMX.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl">
