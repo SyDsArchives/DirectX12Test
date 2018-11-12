@@ -20,12 +20,15 @@ struct Output {
 	float4 normal:NORMAL;
 	float4 pos:POSITION;
 	float2 uv:TEXCOORD;
+	min16uint2 boneno:BONENO;
+	min16uint weight:WEIGHT;
+	float3 color:COLOR;
 };
 
 
 
 //頂点シェーダ
-Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD)
+Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD, min16uint2 boneno:BONENO, min16uint weight:WEIGHT)
 {
 	Output output;
 
@@ -39,6 +42,14 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD)
 	output.normal = mul(world,normal);
 
 	output.uv = uv;
+
+	output.boneno = boneno;
+
+	output.weight = weight;
+
+	float3 w = weight / 100.f;
+	float3 color = (w, 1 - w, 0);
+	output.color = color;
 	
 	return output;
 }
@@ -63,5 +74,7 @@ float4 ps(Output output):SV_Target
 
 	alpha = diffuse.a;
 
-	return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
+	//return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
+	//return float4((float2)(output.boneno / 128.0f), 0, 1);
+	return float4(output.color, 1);
 }
