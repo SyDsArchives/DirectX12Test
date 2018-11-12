@@ -17,6 +17,8 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+	{ "BONENO",0,DXGI_FORMAT_R16G16_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+	{ "WEIGHT",0,DXGI_FORMAT_R8_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 };
 
 const int screenBufferNum = 2;//画面バッファの数
@@ -35,7 +37,7 @@ vertexShader(nullptr), pixelShader(nullptr),
 constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr),
 pmx(new PMX())
 {
-	pmx->Load();
+	//pmx->Load();
 	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -78,7 +80,7 @@ void MyDirectX12::InLoopDx12(float angle)
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	wvp.world = DirectX::XMMatrixRotationY(angle);
+	//wvp.world = DirectX::XMMatrixRotationY(angle);
 
 	memcpy(cbuff, &wvp, sizeof(wvp));
 
@@ -694,6 +696,31 @@ void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
 
 	//ファイルを閉じる
 	fclose(miku_pmd);
+
+	boneMatrices.resize(pmdbones.boneProp.size());
+	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
+	
+	auto& mbones = pmdbones.boneProp;
+	{
+		for (int i = 0; i < pmdbones.boneProp.size(); ++i)
+		{
+			auto& b = pmdbones.boneProp[i];
+			auto& bonenode = boneMap[b.boneName];
+			bonenode.boneIdx = i;
+			bonenode.startpPos = b.boneHeadPos;
+			bonenode.endPos = mbones[b.tailPosBoneIndex].boneHeadPos;
+
+		}
+		for (auto& b : boneMap)
+		{
+			if (mbones[b.second.boneIdx].parentBoneIndex >= mbones.size())
+			{
+				continue;
+			}
+			auto parentName = mbones[mbones[b.second.boneIdx].parentBoneIndex].boneName;
+			boneMap[parentName].children.push_back(&b.second);
+		}
+	}
 }
 
 void MyDirectX12::CreateVertexBuffer()

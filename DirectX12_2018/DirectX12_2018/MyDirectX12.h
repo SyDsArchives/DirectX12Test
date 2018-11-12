@@ -10,6 +10,7 @@
 
 #include <vector>
 #include <functional>
+#include <map>
 
 #include "PMX.h"
 
@@ -77,6 +78,13 @@ struct PMDBones
 {
 	unsigned short boneNum;//ボーン数
 	std::vector<BoneProperty> boneProp;//ボーンデータ
+};
+
+struct BoneNode {
+	int boneIdx;
+	Position3f startpPos;
+	Position3f endPos;
+	std::vector<BoneNode*> children;
 };
 
 struct MaterialColorRGBA
@@ -206,6 +214,8 @@ private:
 
 	//ボーン関連
 	PMDBones pmdbones;
+	std::vector<DirectX::XMMATRIX> boneMatrices;
+	std::map<std::string, BoneNode> boneMap;
 
 public:
 	MyDirectX12(HWND _hwnd);
