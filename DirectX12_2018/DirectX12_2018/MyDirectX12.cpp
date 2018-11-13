@@ -18,7 +18,7 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
 	{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 	{ "BONENO",0,DXGI_FORMAT_R16G16_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
-	{ "WEIGHT",0,DXGI_FORMAT_R8_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+	{ "WEIGHT", 0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 };
 
 const int screenBufferNum = 2;//画面バッファの数
@@ -26,15 +26,16 @@ const int screenBufferNum = 2;//画面バッファの数
 MyDirectX12::MyDirectX12(HWND _hwnd) : hwnd(_hwnd),
 bbindex(0), descriptorSizeRTV(0),
 dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
-cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr), 
+cmdAllocator(nullptr), cmdQueue(nullptr), cmdList(nullptr),
 descriptorHeapRTV(nullptr), rgstDescHeap(nullptr), descriptorHeapDSB(nullptr),
-swapChain(nullptr), 
+swapChain(nullptr),
 rootSignature(nullptr),
 piplineState(nullptr),
-fence(nullptr), fenceValue(0), 
-textureBuffer(nullptr), 
-vertexShader(nullptr), pixelShader(nullptr), 
+fence(nullptr), fenceValue(0),
+textureBuffer(nullptr),
+vertexShader(nullptr), pixelShader(nullptr),
 constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr),
+bBuff(nullptr), boneBuffer(nullptr),
 pmx(new PMX())
 {
 	//pmx->Load();
@@ -62,6 +63,7 @@ pmx(new PMX())
 	MyDirectX12::CreateWhiteTextureBuffer();
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateMaterialBuffer();
+	MyDirectX12::CreateBoneBuffer();
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
 }
@@ -82,7 +84,17 @@ void MyDirectX12::InLoopDx12(float angle)
 	//定数バッファ用データの更新(毎フレーム)
 	//wvp.world = DirectX::XMMatrixRotationY(angle);
 
+	//カメラ用定数バッファの更新
 	memcpy(cbuff, &wvp, sizeof(wvp));
+	
+	//ボーン初期化
+	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
+
+	//実験
+	boneMatrices[boneMap["左ひじ"].boneIdx] = DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV4);
+
+	//ボーン更新
+	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
 
 	//背景色
 	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
@@ -152,6 +164,9 @@ void MyDirectX12::InLoopDx12(float angle)
 
 	//PMDモデルインデックス入り表示
 	//cmdList->DrawIndexedInstanced(pmdindices.size(), 1, 0, 0, 0);
+
+	//ボーン用定数バッファのセット
+	cmdList->SetGraphicsRootConstantBufferView(2, boneBuffer->GetGPUVirtualAddress());
 
 	//マテリアル用デスクリプターヒープのセットとモデル描画
 	cmdList->SetDescriptorHeaps(1, &materialDescHeap);
@@ -1074,6 +1089,35 @@ void MyDirectX12::CreateMaterialBuffer()
 	}
 }
 
+void MyDirectX12::CreateBoneBuffer()
+{
+	HRESULT result = S_OK;
+
+	size_t size = sizeof(DirectX::XMMATRIX) * boneMatrices.size();
+	size = (size + 0xff)&~0xff;
+
+	result = dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(size),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&boneBuffer));
+
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateConstantBuffer関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+	
+
+	//マップをする
+	result = boneBuffer->Map(0, nullptr, (void**)&bBuff);
+	//XMMATRIX分ずつデータを送る
+	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
+}
+
 void MyDirectX12::CreateDescriptorHeapRegister()
 {
 	HRESULT result = S_OK;
@@ -1151,6 +1195,11 @@ void MyDirectX12::CreateRootParameter()
 	materialRange[1].BaseShaderRegister = 1;//レジスタ番号
 	materialRange[1].NumDescriptors = pmdmaterials.size();
 	materialRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//b[2]
+	//boneRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ;
+	//boneRange[0].BaseShaderRegister = 2;//レジスタ番号;
+	//boneRange[0].NumDescriptors = 1;
+	//boneRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1163,6 +1212,11 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[1].DescriptorTable.NumDescriptorRanges = _countof(materialRange);
 	rootParam[1].DescriptorTable.pDescriptorRanges = materialRange;//対応するレンジへのポインタ
 	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	//bone
+	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+	rootParam[2].Descriptor.RegisterSpace = 0;
+	rootParam[2].Descriptor.ShaderRegister = 2;//レジスタ番号
+	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 }
 
 void MyDirectX12::CreateRootSignature()
