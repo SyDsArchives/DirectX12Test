@@ -82,7 +82,7 @@ void MyDirectX12::InLoopDx12(float angle)
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	//wvp.world = DirectX::XMMatrixRotationY(angle);
+	wvp.world = DirectX::XMMatrixRotationY(angle);
 
 	//カメラ用定数バッファの更新
 	memcpy(cbuff, &wvp, sizeof(wvp));
@@ -91,6 +91,7 @@ void MyDirectX12::InLoopDx12(float angle)
 	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
 
 	//実験
+	//ボーン回転をかける
 	{
 		auto joint = boneMap["左ひじ"];
 		DirectX::XMFLOAT3 startpos(joint.startpPos.x, joint.startpPos.y, joint.startpPos.z);
@@ -107,10 +108,9 @@ void MyDirectX12::InLoopDx12(float angle)
 			* DirectX::XMMatrixRotationZ(-DirectX::XM_PIDIV2)*DirectX::XMMatrixTranslationFromVector(vec);
 	}
 	
+	//ボーンの回転情報を子供ボーンへ伝える
 	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
 	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
-	
-	//boneMatrices[boneMap["左ひじ"].boneIdx] = DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV4);
 
 	//ボーン更新
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
