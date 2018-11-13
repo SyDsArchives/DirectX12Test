@@ -114,6 +114,7 @@ struct Cbuffer {
 	DirectX::XMMATRIX viewproj;
 };
 
+struct DirectX::XMMATRIX;
 class MyDirectX12
 {
 private:
@@ -301,5 +302,8 @@ public:
 
 	//ボーン用バッファ
 	void CreateBoneBuffer();
+
+	//ボーン回転
+	void RecursiveMatrixMultiply(BoneNode& node,DirectX::XMMATRIX& inMat);
 };
 

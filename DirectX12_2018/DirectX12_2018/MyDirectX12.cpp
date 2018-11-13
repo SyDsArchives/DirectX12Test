@@ -38,7 +38,7 @@ constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(null
 bBuff(nullptr), boneBuffer(nullptr),
 pmx(new PMX())
 {
-	pmx->Load();
+	//pmx->Load();
 	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -82,7 +82,7 @@ void MyDirectX12::InLoopDx12(float angle)
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	wvp.world = DirectX::XMMatrixRotationY(angle);
+	//wvp.world = DirectX::XMMatrixRotationY(angle);
 
 	//カメラ用定数バッファの更新
 	memcpy(cbuff, &wvp, sizeof(wvp));
@@ -91,7 +91,26 @@ void MyDirectX12::InLoopDx12(float angle)
 	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
 
 	//実験
-	boneMatrices[boneMap["左ひじ"].boneIdx] = DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV4);
+	{
+		auto joint = boneMap["左ひじ"];
+		DirectX::XMFLOAT3 startpos(joint.startpPos.x, joint.startpPos.y, joint.startpPos.z);
+		auto vec = DirectX::XMLoadFloat3(&startpos);
+		boneMatrices[joint.boneIdx] = DirectX::XMMatrixTranslationFromVector(DirectX::XMVectorScale(vec, -1))
+			* DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV2)*DirectX::XMMatrixTranslationFromVector(vec);
+	}
+
+	{
+		auto joint = boneMap["右ひじ"];
+		DirectX::XMFLOAT3 startpos(joint.startpPos.x, joint.startpPos.y, joint.startpPos.z);
+		auto vec = DirectX::XMLoadFloat3(&startpos);
+		boneMatrices[joint.boneIdx] = DirectX::XMMatrixTranslationFromVector(DirectX::XMVectorScale(vec, -1))
+			* DirectX::XMMatrixRotationZ(-DirectX::XM_PIDIV2)*DirectX::XMMatrixTranslationFromVector(vec);
+	}
+	
+	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
+	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
+	
+	//boneMatrices[boneMap["左ひじ"].boneIdx] = DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV4);
 
 	//ボーン更新
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
@@ -1116,6 +1135,16 @@ void MyDirectX12::CreateBoneBuffer()
 	result = boneBuffer->Map(0, nullptr, (void**)&bBuff);
 	//XMMATRIX分ずつデータを送る
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
+}
+
+
+void MyDirectX12::RecursiveMatrixMultiply(BoneNode & node, DirectX::XMMATRIX & inMat)
+{
+	boneMatrices[node.boneIdx] *= inMat;
+	for (auto& cnode : node.children)
+	{
+		RecursiveMatrixMultiply(*cnode, boneMatrices[node.boneIdx]);
+	}
 }
 
 void MyDirectX12::CreateDescriptorHeapRegister()
