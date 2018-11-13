@@ -82,6 +82,39 @@ struct PMXIndex
 	unsigned int index3;
 };
 
+struct RGB
+{
+	float r;
+	float g;
+	float b;
+};
+
+struct RGBA
+{
+	float r;
+	float g;
+	float b;
+	float a;
+};
+
+struct PMXMaterial
+{
+	RGBA diffuse;
+	RGB specular;
+	float specularCoefficient;
+	RGB ambient;
+	char drawFlagType;
+	RGBA edgeColor;
+	unsigned int textureIndexSize;
+	unsigned int sphereTextureIndexSize;
+	char sphereMode;
+	bool toonFlag;
+	unsigned int toonTextureIndexSize;//toonFlag = 0
+	unsigned char  shareToonTexture;//toonFlag = 1
+	std::vector<std::wstring> text;
+	unsigned int materialIndexNum;//ïKÇ∏3ÇÃî{êîÇ…Ç»ÇÈ
+};
+
 class PMX
 {
 public:

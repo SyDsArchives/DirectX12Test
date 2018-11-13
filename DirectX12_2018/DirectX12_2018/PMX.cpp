@@ -176,38 +176,143 @@ void PMX::Load()
 	}
 
 
-	//テクスチャパスアドレスの読み込み
-	unsigned int materialNum;//マテリアル数
-	std::vector<std::wstring> materialName;//マテリアル名
+	//テクスチャパスの読み込み
+	unsigned int textureNum;//テクスチャ数
+	std::vector<std::wstring> textureName;//テクスチャ名
 	const wchar_t* filepath = L"resource/model/";//ファイルアドレス
 	const wchar_t* slash = L"/";
 
 	//テクスチャ数の読み込み
-	fread(&materialNum, sizeof(materialNum), 1, fp);
+	fread(&textureNum, sizeof(textureNum), 1, fp);
 
 	//テクスチャ数分メモリを確保する
-	materialName.resize(materialNum);
+	textureName.resize(textureNum);
 	
 	//テクスチャパスアドレス文字列の読み込み、組み合わせ
-	for (int i = 0; i < materialName.size(); ++i)
 	{
-		//テクスチャ名文字列数
-		unsigned int texNameSize = 0;
-		//テクスチャ名用ダミー変数
-		wchar_t dummy[20] = {};
+		for (int i = 0; i < textureName.size(); ++i)
+		{
+			//テクスチャ名文字列数
+			unsigned int texNameSize = 0;
+			//テクスチャ名用ダミー変数
+			wchar_t dummy[20] = {};
 
-		//テクスチャ名文字列数読み込み
-		fread(&texNameSize, sizeof(texNameSize), 1, fp);
-		//テクスチャ名の読み込み
-		fread(&dummy, texNameSize, 1, fp);
+			//テクスチャ名文字列数読み込み
+			fread(&texNameSize, sizeof(texNameSize), 1, fp);
 
-		//テクスチャアドレスの組み合わせ
-		materialName[i].append(filepath);
-		materialName[i].append(modelname_jp);
-		materialName[i].append(slash);
-		materialName[i].append(dummy);
+			//テクスチャ名の読み込み
+			fread(&dummy, texNameSize, 1, fp);
+
+			//テクスチャアドレスの組み合わせ
+			textureName[i].append(filepath);
+			textureName[i].append(modelname_jp);
+			textureName[i].append(slash);
+			textureName[i].append(dummy);
+		}
 	}
-	
 
+
+	//マテリアル情報の読み込み
+	//マテリアル数格納用変数
+	unsigned int materialNum;
+
+	//日本語用マテリアル名格納変数
+	std::vector<std::wstring> materialName_jp;
+	//日本語用マテリアル名格納変数
+	std::vector<std::wstring> materialName_en;
+	//マテリアル情報格納用変数
+	std::vector<PMXMaterial> materials;
+
+	
+	//マテリアル数の読み込み
+	fread(&materialNum, sizeof(materialNum), 1, fp);
+
+	//マテリアル数分メモリ確保
+	materialName_jp.resize(materialNum);
+	materialName_en.resize(materialNum);
+	materials.resize(materialNum);
+
+	//マテリアル名の読み込み
+	{
+		for (int i = 0; i < materialNum; ++i)
+		{
+			//日本語マテリアル名読み込み
+			{
+				//マテリアル名の長さ格納用
+				unsigned int matNameSize = 0;
+				//マテリアル名一時格納用
+				wchar_t dummy[20] = {};
+
+				//マテリアル名の長さの読み込み
+				fread(&matNameSize, sizeof(matNameSize), 1, fp);
+
+				//マテリアル名の読み込み
+				fread(&dummy, matNameSize, 1, fp);
+
+				//保存用変数にコピー
+				materialName_jp[i] = dummy;
+			}
+
+			//英語マテリアル名読み込み
+			{
+				//マテリアル名の長さ格納用
+				unsigned int matNameSize = 0;
+				//マテリアル名一時格納用
+				wchar_t dummy[20] = {};
+
+				//マテリアル名の長さの読み込み
+				fread(&matNameSize, sizeof(matNameSize), 1, fp);
+
+				//マテリアル名の読み込み
+				fread(&dummy, matNameSize, 1, fp);
+
+				//保存用変数にコピー
+				materialName_en[i] = dummy;
+			}
+
+			//マテリアル情報の読み込み
+			{
+				//diffuse読み込み
+				fread(&materials[i].diffuse, sizeof(RGBA), 1, fp);
+				//specular読み込み
+				fread(&materials[i].specular, sizeof(RGB), 1, fp);
+				//specular係数読み込み
+				fread(&materials[i].specularCoefficient, sizeof(float), 1, fp);
+				//ambient読み込み
+				fread(&materials[i].ambient, sizeof(RGB), 1, fp);
+				//bitFlag読み込み
+				fread(&materials[i].drawFlagType, sizeof(char), 1, fp);
+				//edge色読み込み
+				fread(&materials[i].edgeColor, sizeof(RGBA), 1, fp);
+				//edgeサイズ読み込み
+				fread(&materials[i].edgeColor, sizeof(float), 1, fp);
+				//textureIndexサイズ読み込み
+				fread(&materials[i].textureIndexSize, pmxHeader.textureIndexSize, 1, fp);
+				//sphereTextureIndexサイズ読み込み
+				fread(&materials[i].sphereTextureIndexSize, pmxHeader.textureIndexSize, 1, fp);
+				//sphereモード読み込み
+				fread(&materials[i].sphereMode, sizeof(char), 1, fp);
+				//共有toonフラグ読み込み
+				fread(&materials[i].toonFlag, sizeof(bool), 1, fp);
+				
+				if (materials[i].toonFlag)
+				{
+					//toonTextureIndexサイズ読み込み
+					fread(&materials[i].toonTextureIndexSize, pmxHeader.textureIndexSize, 1, fp);
+				}
+				else
+				{
+					//共有toonTexture読み込み
+					fread(&materials[i].toonTextureIndexSize, sizeof(char), 1, fp);
+				}
+
+				//テキストメモ読み込み
+				unsigned int textSize = 0;
+				fread(&materials[i].text, textSize, 1, fp);
+				//材質面数読み込み
+				fread(&materials[i].materialIndexNum, sizeof(int), 1, fp);
+			}
+		}
+	}
 	fclose(fp);
 }

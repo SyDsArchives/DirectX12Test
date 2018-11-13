@@ -38,7 +38,7 @@ constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(null
 bBuff(nullptr), boneBuffer(nullptr),
 pmx(new PMX())
 {
-	//pmx->Load();
+	pmx->Load();
 	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -82,7 +82,7 @@ void MyDirectX12::InLoopDx12(float angle)
 	HRESULT result = S_OK;
 
 	//定数バッファ用データの更新(毎フレーム)
-	//wvp.world = DirectX::XMMatrixRotationY(angle);
+	wvp.world = DirectX::XMMatrixRotationY(angle);
 
 	//カメラ用定数バッファの更新
 	memcpy(cbuff, &wvp, sizeof(wvp));
