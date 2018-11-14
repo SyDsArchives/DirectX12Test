@@ -114,6 +114,7 @@ struct Cbuffer {
 	DirectX::XMMATRIX viewproj;
 };
 
+class VMD;
 struct DirectX::XMMATRIX;
 class MyDirectX12
 {
@@ -219,6 +220,9 @@ private:
 	std::map<std::string, BoneNode> boneMap;
 	ID3D12Resource* boneBuffer;//ボーン用バッファ
 	DirectX::XMMATRIX* bBuff;//ボーン情報更新用(buffer->map用)
+
+	//VMD
+	VMD* vmd;
 
 public:
 	MyDirectX12(HWND _hwnd);

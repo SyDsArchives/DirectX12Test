@@ -22,6 +22,9 @@
     <Filter Include="PMX">
       <UniqueIdentifier>{35c3b57f-1f08-4ab2-b2c4-ffadb166e7fa}</UniqueIdentifier>
     </Filter>
+    <Filter Include="VMD">
+      <UniqueIdentifier>{50943578-bd04-4357-be5f-90135772901c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -41,6 +44,9 @@
     </ClCompile>
     <ClCompile Include="PMX.cpp">
       <Filter>PMX</Filter>
+    </ClCompile>
+    <ClCompile Include="VMD.cpp">
+      <Filter>VMD</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -70,6 +76,9 @@
     </ClInclude>
     <ClInclude Include="PMX.h">
       <Filter>PMX</Filter>
+    </ClInclude>
+    <ClInclude Include="VMD.h">
+      <Filter>VMD</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

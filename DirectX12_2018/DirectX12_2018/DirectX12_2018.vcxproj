@@ -133,6 +133,7 @@
     </ClCompile>
     <ClCompile Include="PMD.cpp" />
     <ClCompile Include="PMX.cpp" />
+    <ClCompile Include="VMD.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Library\DirectXTex-master\DirectXTex\DirectXTex.h" />
@@ -144,6 +145,7 @@
     <ClInclude Include="MyVector_2Dor3D.h" />
     <ClInclude Include="PMD.h" />
     <ClInclude Include="PMX.h" />
+    <ClInclude Include="VMD.h" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl">

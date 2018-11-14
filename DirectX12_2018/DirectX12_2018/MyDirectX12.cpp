@@ -4,6 +4,7 @@
 #include <iostream>
 #include "LoadImageFile.h"
 #include "DirectXTex.h"
+#include "VMD.h"
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
@@ -11,6 +12,7 @@
 #pragma comment(lib,"DirectXTex.lib")
 
 const char* fname = "resource/model/miku/初音ミク.pmd";
+const char* vmdfile = "resource/vmd/pose.vmd";
 
 //シェーダへ送る情報(頂点レイアウト)
 D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
@@ -36,9 +38,10 @@ textureBuffer(nullptr),
 vertexShader(nullptr), pixelShader(nullptr),
 constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr),
 bBuff(nullptr), boneBuffer(nullptr),
-pmx(new PMX())
+pmx(new PMX()),vmd(new VMD())
 {
 	//pmx->Load();
+	vmd->Load(vmdfile);
 	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
