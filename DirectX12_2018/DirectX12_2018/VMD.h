@@ -1,6 +1,9 @@
 #pragma once
 #include "MyVector_2Dor3D.h"
 #include <vector>
+#include <map>
+#include <string>
+#include <DirectXMath.h>
 
 struct VMDHeader {
 	char vmdHeader[30];
@@ -11,7 +14,7 @@ struct VMDMotion {//111byte
 	char boneName[15];
 	unsigned long frameNo;
 	Position3f Location;
-	float Rotation[4];
+	DirectX::XMFLOAT4 Rotation;
 	unsigned char interpolation[64];
 };
 
@@ -46,6 +49,12 @@ struct VMDSelfShadow {
 	float distance;
 };
 
+struct KeyFrame
+{
+	int frameNo;
+	DirectX::XMFLOAT4 quaternion;
+};
+
 class VMD
 {
 private:
@@ -58,14 +67,18 @@ private:
 	VMDHeader vmdHeader = {};
 	std::vector<VMDMotion> vmdMotion;
 	std::vector<VMDSkin> vmdSkin;
-	/*VMDCamera vmdCamera = {};
+	VMDCamera vmdCamera = {};
 	VMDLight vmdLight = {};
-	VMDSelfShadow vmdShadow = {};*/
+	VMDSelfShadow vmdShadow = {};
+
+	std::vector<KeyFrame> keyframes;
+	std::map<std::string, std::vector<KeyFrame>> animation;
 
 public:
 	VMD();
 	~VMD();
 
 	void Load(const char* _fileAddress);
+	void InitAnimation();
 };
 

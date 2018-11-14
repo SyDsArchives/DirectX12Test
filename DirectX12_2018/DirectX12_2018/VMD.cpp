@@ -74,3 +74,11 @@ void VMD::Load(const char * _fileAddress)
 
 	fclose(fp);
 }
+
+void VMD::InitAnimation()
+{
+	for (auto& keyFrame : vmdMotion)
+	{
+		//animation[keyFrame.boneName].emplace_back(KeyFrame((int)(keyFrame.frameNo), keyFrame.Rotation));
+	}
+}
