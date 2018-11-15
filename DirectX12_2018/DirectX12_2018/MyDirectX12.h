@@ -82,7 +82,7 @@ struct PMDBones
 
 struct BoneNode {
 	int boneIdx;
-	Position3f startpPos;
+	Position3f startPos;
 	Position3f endPos;
 	std::vector<BoneNode*> children;
 };
@@ -114,8 +114,10 @@ struct Cbuffer {
 	DirectX::XMMATRIX viewproj;
 };
 
-class VMD;
+struct KeyFrame;
+typedef std::map<std::string, std::vector<KeyFrame>> AnimationMap_m;
 struct DirectX::XMMATRIX;
+class VMD;
 class MyDirectX12
 {
 private:
@@ -223,6 +225,8 @@ private:
 
 	//VMD
 	VMD* vmd;
+	AnimationMap_m animationData;
+	unsigned int lastTime;
 
 public:
 	MyDirectX12(HWND _hwnd);
@@ -309,5 +313,9 @@ public:
 
 	//ボーン回転
 	void RecursiveMatrixMultiply(BoneNode& node,DirectX::XMMATRIX& inMat);
+	void RotateBone(const char* bonename, const DirectX::XMFLOAT4& q, const DirectX::XMFLOAT4& q2 = DirectX::XMFLOAT4(),float t = 0.0f);
+
+	//VMDアニメーション適応
+	void MotionUpdate(int _frameNo);
 };
 

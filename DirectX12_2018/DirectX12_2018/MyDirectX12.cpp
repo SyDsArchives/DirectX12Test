@@ -12,7 +12,7 @@
 #pragma comment(lib,"DirectXTex.lib")
 
 const char* fname = "resource/model/miku/初音ミク.pmd";
-const char* vmdfile = "resource/vmd/pose.vmd";
+const char* vmdfile = "resource/vmd/ヤゴコロダンス.vmd";
 
 //シェーダへ送る情報(頂点レイアウト)
 D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
@@ -38,10 +38,11 @@ textureBuffer(nullptr),
 vertexShader(nullptr), pixelShader(nullptr),
 constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr),
 bBuff(nullptr), boneBuffer(nullptr),
-pmx(new PMX()),vmd(new VMD())
+pmx(new PMX()),vmd(new VMD()),lastTime(0)
 {
 	//pmx->Load();
 	vmd->Load(vmdfile);
+	animationData = vmd->GetAnimationMapData();
 	MyDirectX12::LoadPMDModelData(fname);
 	MyDirectX12::CreateDXGIFactory();
 	MyDirectX12::CreateDevice();
@@ -89,32 +90,19 @@ void MyDirectX12::InLoopDx12(float angle)
 
 	//カメラ用定数バッファの更新
 	memcpy(cbuff, &wvp, sizeof(wvp));
+
+	//30f取得
+	if (GetTickCount() - lastTime > vmd->GetDuration() * 33.33333f)
+	{
+		lastTime = GetTickCount();
+	}
 	
 	//ボーン初期化
 	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
 
-	//実験
-	//ボーン回転をかける
-	{
-		auto joint = boneMap["左ひじ"];
-		DirectX::XMFLOAT3 startpos(joint.startpPos.x, joint.startpPos.y, joint.startpPos.z);
-		auto vec = DirectX::XMLoadFloat3(&startpos);
-		boneMatrices[joint.boneIdx] = DirectX::XMMatrixTranslationFromVector(DirectX::XMVectorScale(vec, -1))
-			* DirectX::XMMatrixRotationZ(DirectX::XM_PIDIV2)*DirectX::XMMatrixTranslationFromVector(vec);
-	}
-
-	{
-		auto joint = boneMap["右ひじ"];
-		DirectX::XMFLOAT3 startpos(joint.startpPos.x, joint.startpPos.y, joint.startpPos.z);
-		auto vec = DirectX::XMLoadFloat3(&startpos);
-		boneMatrices[joint.boneIdx] = DirectX::XMMatrixTranslationFromVector(DirectX::XMVectorScale(vec, -1))
-			* DirectX::XMMatrixRotationZ(-DirectX::XM_PIDIV2)*DirectX::XMMatrixTranslationFromVector(vec);
-	}
+	//PMDにVMDを適応させる
+	MotionUpdate(static_cast<float>(GetTickCount() - lastTime) / 33.33333f);
 	
-	//ボーンの回転情報を子供ボーンへ伝える
-	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
-	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
-
 	//ボーン更新
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
 
@@ -744,7 +732,7 @@ void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
 			auto& b = pmdbones.boneProp[i];
 			auto& bonenode = boneMap[b.boneName];
 			bonenode.boneIdx = i;
-			bonenode.startpPos = b.boneHeadPos;
+			bonenode.startPos = b.boneHeadPos;
 			bonenode.endPos = mbones[b.tailPosBoneIndex].boneHeadPos;
 
 		}
@@ -1140,16 +1128,6 @@ void MyDirectX12::CreateBoneBuffer()
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
 }
 
-
-void MyDirectX12::RecursiveMatrixMultiply(BoneNode & node, DirectX::XMMATRIX & inMat)
-{
-	boneMatrices[node.boneIdx] *= inMat;
-	for (auto& cnode : node.children)
-	{
-		RecursiveMatrixMultiply(*cnode, boneMatrices[node.boneIdx]);
-	}
-}
-
 void MyDirectX12::CreateDescriptorHeapRegister()
 {
 	HRESULT result = S_OK;
@@ -1332,3 +1310,66 @@ void MyDirectX12::CreatePiplineState()
 	}
 }
 
+//VMD関連
+////////////////////////////////////////////////////////////////////////////////////
+void MyDirectX12::RecursiveMatrixMultiply(BoneNode & node, DirectX::XMMATRIX & inMat)
+{
+	boneMatrices[node.boneIdx] *= inMat;
+	for (auto& cnode : node.children)
+	{
+		//assert(node.boneIdx >= 0);
+		RecursiveMatrixMultiply(*cnode, boneMatrices[node.boneIdx]);
+	}
+}
+
+void MyDirectX12::RotateBone(const char* bonename, const DirectX::XMFLOAT4& q, const DirectX::XMFLOAT4& q2, float t)
+{
+	auto& bonenode = boneMap[bonename];
+	DirectX::XMFLOAT3 startPos(bonenode.startPos.x, bonenode.startPos.y, bonenode.startPos.z);
+	auto vec = DirectX::XMLoadFloat3(&startPos);
+	auto quaternion = XMLoadFloat4(&q);
+	auto quaternion2 = XMLoadFloat4(&q2);
+
+	boneMatrices[bonenode.boneIdx] =
+		DirectX::XMMatrixTranslationFromVector(DirectX::XMVectorScale(vec, -1))*
+		DirectX::XMMatrixRotationQuaternion(DirectX::XMQuaternionSlerp(quaternion, quaternion2, t))*
+		DirectX::XMMatrixTranslationFromVector(vec);
+}
+
+void MyDirectX12::MotionUpdate(int _frameNo)
+{
+	//ポーズするための回転を適応させる
+	for (auto& anim : animationData)
+	{
+		auto& localKeyFrames = anim.second;
+		auto frameIt = std::find_if(localKeyFrames.rbegin(), localKeyFrames.rend(),
+			[_frameNo](const KeyFrame& k) {return k.frameNo == _frameNo;});
+
+		if (frameIt == localKeyFrames.rend())
+		{
+			continue;
+		}
+
+		auto nextIt = frameIt.base();
+
+		if (nextIt == localKeyFrames.end())
+		{
+			RotateBone(anim.first.c_str(), frameIt->quaternion);
+		}
+		else
+		{
+			float now = static_cast<float>(nextIt->frameNo);
+
+			float next = static_cast<float>(nextIt->frameNo);
+
+			float t = static_cast<float>(_frameNo - now) / (next - now);
+
+			RotateBone(anim.first.c_str(), frameIt->quaternion, nextIt->quaternion, t);
+		}
+
+		
+	}
+
+	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
+	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
+}

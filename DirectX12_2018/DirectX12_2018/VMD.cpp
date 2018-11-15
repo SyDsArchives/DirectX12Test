@@ -1,5 +1,6 @@
 #include "VMD.h"
 #include <stdio.h>
+#include <algorithm>
 
 VMD::VMD()
 {
@@ -31,6 +32,9 @@ void VMD::Load(const char * _fileAddress)
 			fread(&vmdMotion[i].Location, sizeof(vmdMotion[i].Location), 1, fp);
 			fread(&vmdMotion[i].Rotation, sizeof(vmdMotion[i].Rotation), 1, fp);
 			fread(&vmdMotion[i].interpolation, sizeof(vmdMotion[i].interpolation), 1, fp);
+			
+			//アニメーション1周分を取得
+			duration = std::max(duration, vmdMotion[i].frameNo);
 		}
 	}
 	
@@ -64,21 +68,28 @@ void VMD::Load(const char * _fileAddress)
 		}
 	}
 
-	{
-		fread(&shadowNum, sizeof(shadowNum), 1, fp);
-		if (shadowNum != 0)
-		{
-			int a = 0;
-		}
-	}
+	//{
+	//	fread(&shadowNum, sizeof(shadowNum), 1, fp);
+	//	if (shadowNum != 0)
+	//	{
+	//		int a = 0;
+	//	}
+	//}
 
 	fclose(fp);
+	InitAnimation();
 }
 
 void VMD::InitAnimation()
 {
 	for (auto& keyFrame : vmdMotion)
 	{
-		//animation[keyFrame.boneName].emplace_back(KeyFrame((int)(keyFrame.frameNo), keyFrame.Rotation));
+		animation[keyFrame.boneName].emplace_back(keyFrame.frameNo, keyFrame.Rotation);
+	}
+
+	for (auto& data : animation)
+	{
+		std::sort(data.second.begin(), data.second.end(), [](KeyFrame& a, KeyFrame& b) {return a.frameNo < b.frameNo; });
 	}
 }
+
