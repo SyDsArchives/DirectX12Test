@@ -15,6 +15,8 @@ void VMD::Load(const char * _fileAddress)
 {
 	FILE* fp = fopen(_fileAddress, "rb");
 
+	duration = 0;
+
 	//VMDHeader読み込み
 	fread(&vmdHeader.vmdHeader, sizeof(vmdHeader.vmdHeader), 1, fp);
 	fread(&vmdHeader.vmdModelName, sizeof(vmdHeader.vmdModelName), 1, fp);
@@ -22,33 +24,40 @@ void VMD::Load(const char * _fileAddress)
 	{
 		//モーション数読み込み
 		fread(&motionNum, sizeof(motionNum), 1, fp);
-		//メモリの確保
-		vmdMotion.resize(motionNum);
-		//モーション情報の読み込み
-		for (int i = 0; i < vmdMotion.size(); ++i)
+		if (motionNum != 0)
 		{
-			fread(&vmdMotion[i].boneName, sizeof(vmdMotion[i].boneName), 1, fp);
-			fread(&vmdMotion[i].frameNo, sizeof(vmdMotion[i].frameNo), 1, fp);
-			fread(&vmdMotion[i].Location, sizeof(vmdMotion[i].Location), 1, fp);
-			fread(&vmdMotion[i].Rotation, sizeof(vmdMotion[i].Rotation), 1, fp);
-			fread(&vmdMotion[i].interpolation, sizeof(vmdMotion[i].interpolation), 1, fp);
-			
-			//アニメーション1周分を取得
-			duration = std::max(duration, vmdMotion[i].frameNo);
+			//メモリの確保
+			vmdMotion.resize(motionNum);
+			//モーション情報の読み込み
+			for (int i = 0; i < vmdMotion.size(); ++i)
+			{
+				fread(&vmdMotion[i].boneName, sizeof(vmdMotion[i].boneName), 1, fp);
+				fread(&vmdMotion[i].frameNo, sizeof(vmdMotion[i].frameNo), 1, fp);
+				fread(&vmdMotion[i].Location, sizeof(vmdMotion[i].Location), 1, fp);
+				fread(&vmdMotion[i].Rotation, sizeof(vmdMotion[i].Rotation), 1, fp);
+				fread(&vmdMotion[i].interpolation, sizeof(vmdMotion[i].interpolation), 1, fp);
+
+				//アニメーション1周分を取得
+				duration = std::max(duration, vmdMotion[i].frameNo);
+			}
 		}
 	}
 	
 	{
 		//表情データ数の読み込み
 		fread(&skinNum, sizeof(skinNum), 1, fp);
-		//メモリの確保
-		vmdSkin.resize(skinNum);
-		//表情データの読み込み
-		for (int i = 0; i < vmdSkin.size(); ++i)
+
+		if (skinNum != 0)
 		{
-			fread(&vmdSkin[i].skinName, sizeof(vmdSkin[i].skinName), 1, fp);
-			fread(&vmdSkin[i].frameNo, sizeof(vmdSkin[i].frameNo), 1, fp);
-			fread(&vmdSkin[i].weight, sizeof(vmdSkin[i].weight), 1, fp);
+			//メモリの確保
+			vmdSkin.resize(skinNum);
+			//表情データの読み込み
+			for (int i = 0; i < vmdSkin.size(); ++i)
+			{
+				fread(&vmdSkin[i].skinName, sizeof(vmdSkin[i].skinName), 1, fp);
+				fread(&vmdSkin[i].frameNo, sizeof(vmdSkin[i].frameNo), 1, fp);
+				fread(&vmdSkin[i].weight, sizeof(vmdSkin[i].weight), 1, fp);
+			}
 		}
 	}
 

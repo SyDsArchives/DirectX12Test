@@ -1343,7 +1343,7 @@ void MyDirectX12::MotionUpdate(int _frameNo)
 	{
 		auto& localKeyFrames = anim.second;
 		auto frameIt = std::find_if(localKeyFrames.rbegin(), localKeyFrames.rend(),
-			[_frameNo](const KeyFrame& k) {return k.frameNo == _frameNo;});
+			[_frameNo](const KeyFrame& k) {return k.frameNo <= _frameNo;});
 
 		if (frameIt == localKeyFrames.rend())
 		{
@@ -1358,7 +1358,7 @@ void MyDirectX12::MotionUpdate(int _frameNo)
 		}
 		else
 		{
-			float now = static_cast<float>(nextIt->frameNo);
+			float now = static_cast<float>(frameIt->frameNo);
 
 			float next = static_cast<float>(nextIt->frameNo);
 
@@ -1366,8 +1366,6 @@ void MyDirectX12::MotionUpdate(int _frameNo)
 
 			RotateBone(anim.first.c_str(), frameIt->quaternion, nextIt->quaternion, t);
 		}
-
-		
 	}
 
 	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
