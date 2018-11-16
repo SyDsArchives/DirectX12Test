@@ -25,6 +25,13 @@ D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 
 const int screenBufferNum = 2;//画面バッファの数
 
+Vertex vertices[] = { 
+DirectX::XMFLOAT3(-1,-1,0),DirectX::XMFLOAT2(0,1),//正面
+DirectX::XMFLOAT3(-1,1,0),DirectX::XMFLOAT2(0,0),//正面
+DirectX::XMFLOAT3(1,-1,0),DirectX::XMFLOAT2(1,1),//正面
+DirectX::XMFLOAT3(1,1,0),DirectX::XMFLOAT2(1,0),//正面
+};
+
 MyDirectX12::MyDirectX12(HWND _hwnd) : hwnd(_hwnd),
 bbindex(0), descriptorSizeRTV(0),
 dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
@@ -50,6 +57,7 @@ pmx(new PMX()),vmd(new VMD()),lastTime(0)
 	MyDirectX12::CreateCommandAllocator();
 	MyDirectX12::CreateCommandList();
 	MyDirectX12::CreateDescriptorHeapRTV();
+	MyDirectX12::CreateDescriptorHeapFor1stPath();
 	MyDirectX12::CreateSwapChain();
 	MyDirectX12::CreateRenderTarget();
 	MyDirectX12::CreateFence();
@@ -195,6 +203,10 @@ void MyDirectX12::InLoopDx12(float angle)
 		cmdList->DrawIndexedInstanced(idxcount, 1, offset, 0, 0);
 		offset += idxcount;
 	}
+
+	//四角形描画
+	/*cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);*/
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -1370,4 +1382,33 @@ void MyDirectX12::MotionUpdate(int _frameNo)
 
 	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
 	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
+}
+
+void MyDirectX12::CreateRenderTargetFor1stPath()
+{
+
+}
+
+void MyDirectX12::CreateDescriptorHeapFor1stPath()
+{
+	HRESULT result = S_OK;
+
+	//1stPathのRTVを作成
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	desc.NumDescriptors = 1;
+	desc.NodeMask = 0;
+
+	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descHeap_For_1stPathRTV));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDescriptorHeapForPostEffectRTV関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+
+	//1stPathのSRVを作成
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descHeap_For_1stPathSRV));
 }

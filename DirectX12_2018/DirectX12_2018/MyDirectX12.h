@@ -228,6 +228,13 @@ private:
 	AnimationMap_m animationData;
 	unsigned int lastTime;
 
+	//1stpath
+	ID3D12DescriptorHeap* descHeap_For_1stPathRTV;
+	ID3D12DescriptorHeap* descHeap_For_1stPathSRV;
+	//ID3D12Resource* ;
+	//D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
+	
+
 public:
 	MyDirectX12(HWND _hwnd);
 	~MyDirectX12();
@@ -317,5 +324,10 @@ public:
 
 	//VMDアニメーション適応
 	void MotionUpdate(int _frameNo);
+
+	//ポストエフェクト
+	//1stpath
+	void CreateRenderTargetFor1stPath();
+	void CreateDescriptorHeapFor1stPath();
 };
 
