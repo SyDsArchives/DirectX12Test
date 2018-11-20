@@ -75,8 +75,6 @@ void App::Run()
 {
 	dx12 = std::make_shared<MyDirectX12>(hwnd);
 	float angle = 0;
-	
-	dx12->OutLoopDx12();
 
 	ShowWindow(hwnd, SW_SHOW);
 
@@ -94,7 +92,7 @@ void App::Run()
 			break;
 		}
 	}
-	dx12->GetDevice()->Release();
+	//dx12->GetDevice()->Release();
 }
 
 void App::Terminate()

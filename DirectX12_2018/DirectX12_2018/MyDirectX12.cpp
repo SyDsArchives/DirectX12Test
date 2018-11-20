@@ -14,23 +14,7 @@
 const char* fname = "resource/model/miku/初音ミク.pmd";
 const char* vmdfile = "resource/vmd/ヤゴコロダンス.vmd";
 
-//シェーダへ送る情報(頂点レイアウト)
-D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
-	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-	{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
-	{ "BONENO",0,DXGI_FORMAT_R16G16_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
-	{ "WEIGHT", 0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-};
-
 const int screenBufferNum = 2;//画面バッファの数
-
-Vertex vertices[] = { 
-DirectX::XMFLOAT3(-1,-1,0),DirectX::XMFLOAT2(0,1),//正面
-DirectX::XMFLOAT3(-1,1,0),DirectX::XMFLOAT2(0,0),//正面
-DirectX::XMFLOAT3(1,-1,0),DirectX::XMFLOAT2(1,1),//正面
-DirectX::XMFLOAT3(1,1,0),DirectX::XMFLOAT2(1,0),//正面
-};
 
 MyDirectX12::MyDirectX12(HWND _hwnd) : hwnd(_hwnd),
 bbindex(0), descriptorSizeRTV(0),
@@ -45,37 +29,54 @@ textureBuffer(nullptr),
 vertexShader(nullptr), pixelShader(nullptr),
 constantBuffer(nullptr), cbuff(nullptr), vertexBuffer(nullptr), depthBuffer(nullptr), materialDescHeap(nullptr), whiteTextureBuffer(nullptr),
 bBuff(nullptr), boneBuffer(nullptr),
-pmx(new PMX()),vmd(new VMD()),lastTime(0)
+pmx(new PMX()),vmd(new VMD()),lastTime(0),
+//マルチパス用
+descriptorHeapRTV_FP(nullptr), multipassRTV(nullptr),
+descriptorHeapSRV_FP(nullptr), multipassSRV(nullptr)
 {
 	//pmx->Load();
 	vmd->Load(vmdfile);
 	animationData = vmd->GetAnimationMapData();
 	MyDirectX12::LoadPMDModelData(fname);
+
 	MyDirectX12::CreateDXGIFactory();
+
 	MyDirectX12::CreateDevice();
+
+	MyDirectX12::CreateDescriptorHeapRTV();
+	MyDirectX12::CreateDescriptorHeapRegister();
+	MyDirectX12::CreateDescriptorHeapforMaterial();
+	MyDirectX12::CreateDescriptorHeapRTVforFirstPass();
+	MyDirectX12::CreateDescriptorHeapSRVforFirstPass();
+
 	MyDirectX12::CreateCommandQueue();
 	MyDirectX12::CreateCommandAllocator();
 	MyDirectX12::CreateCommandList();
-	MyDirectX12::CreateDescriptorHeapRTV();
-	MyDirectX12::CreateDescriptorHeapFor1stPath();
+	
 	MyDirectX12::CreateSwapChain();
 	MyDirectX12::CreateRenderTarget();
+	MyDirectX12::CreateRenderTargetforFirstPass();
+
+	MyDirectX12::CreateShaderResourceforFirstPass();
+
 	MyDirectX12::CreateFence();
 	
 	MyDirectX12::CreateVertexBuffer();
 	MyDirectX12::CreateIndexBuffer();
 	MyDirectX12::CreateDepthBuffer();
+
+	MyDirectX12::CreateSamplerState();
 	MyDirectX12::CreateRootParameter();
 	MyDirectX12::CreateRootSignature();
-	MyDirectX12::CreateShader();
+
 	MyDirectX12::CreatePiplineState();
-	MyDirectX12::CreateDescriptorHeapRegister();
-	MyDirectX12::CreateDescriptorHeapforMaterial();
+
 	MyDirectX12::CreateTextureBuffer();
 	MyDirectX12::CreateWhiteTextureBuffer();
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::CreateBoneBuffer();
+
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
 }
@@ -85,16 +86,9 @@ MyDirectX12::~MyDirectX12()
 {
 }
 
-void MyDirectX12::OutLoopDx12()
-{
-}
-
 void MyDirectX12::InLoopDx12(float angle)
 {
 	HRESULT result = S_OK;
-
-	//定数バッファ用データの更新(毎フレーム)
-	//wvp.world = DirectX::XMMatrixRotationY(angle);
 
 	//カメラ用定数バッファの更新
 	memcpy(cbuff, &wvp, sizeof(wvp));
@@ -142,7 +136,10 @@ void MyDirectX12::InLoopDx12(float angle)
 	//クリア
 	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
 	//レンダーターゲット設定
-	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+	//cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+	//マルチパス用
+	auto multipassHandleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
+	cmdList->OMSetRenderTargets(1, &multipassHandleRTV, true, &handleDSV);
 
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
@@ -203,10 +200,6 @@ void MyDirectX12::InLoopDx12(float angle)
 		cmdList->DrawIndexedInstanced(idxcount, 1, offset, 0, 0);
 		offset += idxcount;
 	}
-
-	//四角形描画
-	/*cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);*/
 
 	cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
@@ -484,31 +477,6 @@ void MyDirectX12::SetScissorRect()
 	scissorRect.bottom = WindowHeight;
 }
 
-void MyDirectX12::CreateShader()
-{
-	HRESULT result = S_OK;
-	//シェーダー
-	//頂点シェーダ
-	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_DEBUG |
-		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShader, nullptr);
-	if (result != S_OK)
-	{
-		const char* er_title = " CreateShader関数内エラー";
-		const char* er_message = "S_OK以外が返されました";
-		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
-	}
-
-	//ピクセルシェーダ
-	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_DEBUG |
-		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShader, nullptr);
-	if (result != S_OK)
-	{
-		const char* er_title = " CreateShader関数内エラー";
-		const char* er_message = "S_OK以外が返されました";
-		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
-	}
-}
-
 void MyDirectX12::CreateTextureBuffer()
 {
 	HRESULT result = S_OK;
@@ -651,7 +619,6 @@ void MyDirectX12::CreateWhiteTextureBuffer()
 	ExecuteCommand(1);
 	WaitWithFence();
 }
-
 
 void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
 {
@@ -1179,7 +1146,7 @@ void MyDirectX12::CreateDescriptorHeapforMaterial()
 	}
 }
 
-void MyDirectX12::CreateRootParameter()
+void MyDirectX12::CreateSamplerState()
 {
 	//サンプラー s[0]
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
@@ -1195,7 +1162,10 @@ void MyDirectX12::CreateRootParameter()
 	samplerDesc.RegisterSpace = 0;
 	samplerDesc.MaxAnisotropy = 0;//.Filter が Anisotropy の時のみ有効
 	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+}
 
+void MyDirectX12::CreateRootParameter()
+{
 	//レンジの設定
 	//t[0]
 	descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
@@ -1217,11 +1187,6 @@ void MyDirectX12::CreateRootParameter()
 	materialRange[1].BaseShaderRegister = 1;//レジスタ番号
 	materialRange[1].NumDescriptors = pmdmaterials.size();
 	materialRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-	//b[2]
-	//boneRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ;
-	//boneRange[0].BaseShaderRegister = 2;//レジスタ番号;
-	//boneRange[0].NumDescriptors = 1;
-	//boneRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1277,10 +1242,39 @@ void MyDirectX12::CreateRootSignature()
 	}
 }
 
-
 void MyDirectX12::CreatePiplineState()
 {
 	HRESULT result = S_OK;
+
+	//シェーダー
+	//頂点シェーダ
+	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_DEBUG |
+		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShader, nullptr);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateShader関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+
+	//ピクセルシェーダ
+	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_DEBUG |
+		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShader, nullptr);
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateShader関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
+
+	//シェーダへ送る情報(頂点レイアウト)
+	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
+	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+	{ "BONENO",0,DXGI_FORMAT_R16G16_UINT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+	{ "WEIGHT", 0, DXGI_FORMAT_R8_UINT, 0, D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+	};
 
 	//パイプラインステート
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
@@ -1322,8 +1316,9 @@ void MyDirectX12::CreatePiplineState()
 	}
 }
 
-//VMD関連
-////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////
+//				VMD関連
+////////////////////////////////////////////
 void MyDirectX12::RecursiveMatrixMultiply(BoneNode & node, DirectX::XMMATRIX & inMat)
 {
 	boneMatrices[node.boneIdx] *= inMat;
@@ -1384,31 +1379,84 @@ void MyDirectX12::MotionUpdate(int _frameNo)
 	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
 }
 
-void MyDirectX12::CreateRenderTargetFor1stPath()
-{
+///////////////////////////////////////////
+//				マルチパス
+///////////////////////////////////////////
 
+void MyDirectX12::CreateDescriptorHeapRTVforFirstPass()
+{
+	HRESULT result;
+	//ヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC hDesc = {};
+	hDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
+	hDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	hDesc.NodeMask = 0;
+	hDesc.NumDescriptors = 1;
+
+	//ヒープ生成
+	result = dev->CreateDescriptorHeap(&hDesc, IID_PPV_ARGS(&descriptorHeapRTV_FP));
 }
 
-void MyDirectX12::CreateDescriptorHeapFor1stPath()
+void MyDirectX12::CreateRenderTargetforFirstPass()
 {
-	HRESULT result = S_OK;
+	//レンダーターゲット生成
+	auto handle = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
+	dev->CreateRenderTargetView(multipassRTV, nullptr, handle);
+}
 
-	//1stPathのRTVを作成
-	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	desc.NumDescriptors = 1;
-	desc.NodeMask = 0;
+void MyDirectX12::CreateDescriptorHeapSRVforFirstPass()
+{
+	HRESULT result;
+	//ヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC hDesc = {};
+	hDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	hDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	hDesc.NodeMask = 0;
+	hDesc.NumDescriptors = 1;
 
-	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descHeap_For_1stPathRTV));
-	if (result != S_OK)
-	{
-		const char* er_title = " CreateDescriptorHeapForPostEffectRTV関数内エラー";
-		const char* er_message = "S_OK以外が返されました";
-		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
-	}
+	//ヒープ生成
+	result = dev->CreateDescriptorHeap(&hDesc, IID_PPV_ARGS(&descriptorHeapSRV_FP));
+}
 
-	//1stPathのSRVを作成
-	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descHeap_For_1stPathSRV));
+void MyDirectX12::CreateShaderResourceforFirstPass()
+{
+	HRESULT result;
+
+	D3D12_HEAP_PROPERTIES hProp = {};
+	hProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	hProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	hProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	hProp.CreationNodeMask = 1;
+	hProp.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC rDesc = {};
+	rDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	rDesc.Width = sizeof(renderTarget[0]);
+	rDesc.Height = 1;
+	rDesc.DepthOrArraySize = 1;
+	rDesc.SampleDesc.Count = 1;
+	rDesc.SampleDesc.Quality = 1;
+	rDesc.MipLevels = 1;
+	rDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	//rDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+	rDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	result = dev->CreateCommittedResource(
+		&hProp,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&rDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&multipassSRV));
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = rDesc.Format;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	auto handle = descriptorHeapSRV_FP->GetCPUDescriptorHandleForHeapStart();
+
+	dev->CreateShaderResourceView(multipassSRV, &srvDesc, handle);
 }

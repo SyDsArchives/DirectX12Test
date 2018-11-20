@@ -129,111 +129,202 @@ private:
 	HWND hwnd;
 	IDXGIFactory6* dxgiFactory;
 
+	//ファクトリー
+	 //関数
+	 void CreateDXGIFactory();
+
 	//デバイス
-	IDXGIAdapter4* adapter;
-	ID3D12Device* dev;
+	 //関数
+	 void CreateDevice();
+	 //変数
+	 IDXGIAdapter4* adapter;
+	 ID3D12Device* dev;
 
 	//コマンド系
-	ID3D12CommandAllocator* cmdAllocator;
-	ID3D12CommandQueue* cmdQueue;
-	ID3D12GraphicsCommandList3* cmdList;
+	 //関数
+	 void CreateCommandAllocator();
+	 void CreateCommandQueue();
+	 void CreateCommandList();
+	 ID3D12CommandAllocator*	GetCommandAllocator();
+	 ID3D12CommandQueue* GetCommandQueue();
+	 ID3D12GraphicsCommandList3* GetCommandList();
+	 //変数
+	 ID3D12CommandAllocator* cmdAllocator;
+	 ID3D12CommandQueue* cmdQueue;
+	 ID3D12GraphicsCommandList3* cmdList;
 
-	//デスクリプターヒープ
-	ID3D12DescriptorHeap* descriptorHeapRTV;
+	//レンダーターゲット系
+	 //関数
+	 void CreateDescriptorHeapRTV();
+	 void CreateRenderTarget();
+	 //変数
+	 ID3D12DescriptorHeap* descriptorHeapRTV;
+	 std::vector<ID3D12Resource*> renderTarget;
+	 D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
 
 	//スワップチェイン
-	IDXGISwapChain4* swapChain;
+	 //関数
+	 void CreateSwapChain();
+	 //変数
+	 IDXGISwapChain4* swapChain;
+	
+	//モデル頂点バッファ
+	 //関数
+	 void CreateVertexBuffer();
+	 //変数
+	 D3D12_VERTEX_BUFFER_VIEW vbView = {};
+	 ID3D12Resource* vertexBuffer;
 
-	//レンダーターゲット
-	std::vector<ID3D12Resource*> renderTarget;
-	D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
-
-	//頂点バッファ
-	D3D12_VERTEX_BUFFER_VIEW vbView = {};
-	ID3D12Resource* vertexBuffer;
-
-	//インデックスバッファ
-	D3D12_INDEX_BUFFER_VIEW ibView = {};
-	ID3DBlob* vertexShader;
-	ID3DBlob* pixelShader;
+	//モデルインデックスバッファ
+	 //関数
+	 void CreateIndexBuffer();
+	 //変数
+	 D3D12_INDEX_BUFFER_VIEW ibView = {};
+	 ID3DBlob* vertexShader;
+	 ID3DBlob* pixelShader;
 
 	//深度バッファ
-	D3D12_DEPTH_STENCIL_VIEW_DESC dbView = {};
-	ID3D12Resource* depthBuffer;
-	ID3D12DescriptorHeap* descriptorHeapDSB;
+	 //関数
+	 void CreateDepthBuffer();
+	 //変数
+	 D3D12_DEPTH_STENCIL_VIEW_DESC dbView = {};
+	 ID3D12Resource* depthBuffer;
+	 ID3D12DescriptorHeap* descriptorHeapDSB;
 
 	//ルートシグネチャ
-	ID3D12RootSignature* rootSignature;
+	 //関数
+	 void CreateRootSignature();
+	 //変数
+	 ID3D12RootSignature* rootSignature;
 
 	//パイプラインステート
-	ID3D12PipelineState* piplineState;
+	 //関数
+	 void CreatePiplineState();
+	 //変数
+	 ID3D12PipelineState* piplineState;
 
 	//ビューポート
-	D3D12_VIEWPORT viewport;
+	 //関数
+	 void SetViewPort();
+	 //変数
+	 D3D12_VIEWPORT viewport;
 
 	//シザーレクト
-	D3D12_RECT scissorRect;
+	 //関数
+	 void SetScissorRect();
+	 //変数
+	 D3D12_RECT scissorRect;
 
 	//フェンス
-	ID3D12Fence* fence;
-	UINT64 fenceValue;
-	void ExecuteCommand(unsigned int cmdlistnum);
-	void WaitWithFence();
+	 //関数
+	 void CreateFence();
+	 void ExecuteCommand(unsigned int cmdlistnum);
+	 void WaitWithFence();
+	 //変数
+	 ID3D12Fence* fence;
+	 UINT64 fenceValue;
 
 	//サンプラー
-	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
+	 //関数
+	 void CreateSamplerState();
+	 //変数
+	 D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
 
 	//ルートパラメーター
-	D3D12_ROOT_PARAMETER rootParam[3] = {};
-	D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
-	D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
-	D3D12_DESCRIPTOR_RANGE boneRange[1] = {};
+	 //関数
+	 void CreateRootParameter();
+	 //変数
+	 D3D12_ROOT_PARAMETER rootParam[3] = {};
+	 D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
+	 D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
+	 D3D12_DESCRIPTOR_RANGE boneRange[1] = {};
 
 	//テクスチャバッファ
-	ID3D12Resource* textureBuffer;
+	 //関数
+	 void CreateTextureBuffer();
+	 //変数
+	 ID3D12Resource* textureBuffer;
 
 	//定数バッファ 
-	ID3D12Resource* constantBuffer;
-	Cbuffer wvp = {};
-	Cbuffer* cbuff;
+	 //関数
+	 void CreateConstantBuffer();
+	 //変数
+	 ID3D12Resource* constantBuffer;
+	 Cbuffer wvp = {};
+	 Cbuffer* cbuff;
 
-	//デスクヒープ
-	ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
+	//レジスタデスクヒープ
+	 //関数
+	 void CreateDescriptorHeapRegister();
+	 //変数
+	 ID3D12DescriptorHeap* rgstDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
 	
 	//PMD関連
-	char magic[3];
-	PMDData pmddata = {};
-	std::vector<PMDVertex> pmdvertices;
-	std::vector<unsigned short> pmdindices;
-	std::vector<PMDMaterials> pmdmaterials;
-	unsigned int materialNum;
+	 //関数
+	 void LoadPMDModelData(const char * _modelFilename);
+	 //変数
+	 char magic[3];
+	 PMDData pmddata = {};
+	 std::vector<PMDVertex> pmdvertices;
+	 std::vector<unsigned short> pmdindices;
+	 std::vector<PMDMaterials> pmdmaterials;
+	 unsigned int materialNum;
 
 	//マテリアルバッファ
-	ID3D12DescriptorHeap* materialDescHeap;
-	std::vector<ID3D12Resource*> materialBuffer;
-	std::vector<SendMaterialforShader*> material;
+	 //関数
+	 void CreateMaterialBuffer();
+	 void CreateDescriptorHeapforMaterial();
+	 //変数
+	 ID3D12DescriptorHeap* materialDescHeap;
+	 std::vector<ID3D12Resource*> materialBuffer;
+	 std::vector<SendMaterialforShader*> material;
 
 	//白テクスチャ
-	ID3D12Resource* whiteTextureBuffer;
+	 //関数
+	 void CreateWhiteTextureBuffer();
+	 //変数
+	 ID3D12Resource* whiteTextureBuffer;
 
 	//ボーン関連
-	PMDBones pmdbones;
-	std::vector<DirectX::XMMATRIX> boneMatrices;
-	std::map<std::string, BoneNode> boneMap;
-	ID3D12Resource* boneBuffer;//ボーン用バッファ
-	DirectX::XMMATRIX* bBuff;//ボーン情報更新用(buffer->map用)
+	 //関数
+	 void CreateBoneBuffer();
+	 //変数
+	 PMDBones pmdbones;
+	 std::vector<DirectX::XMMATRIX> boneMatrices;
+	 std::map<std::string, BoneNode> boneMap;
+	 ID3D12Resource* boneBuffer;//ボーン用バッファ
+	 DirectX::XMMATRIX* bBuff;//ボーン情報更新用(buffer->map用)
 
 	//VMD
-	VMD* vmd;
-	AnimationMap_m animationData;
-	unsigned int lastTime;
+	 //関数
+	 void RecursiveMatrixMultiply(BoneNode& node, DirectX::XMMATRIX& inMat);
+	 void RotateBone(const char* bonename, const DirectX::XMFLOAT4& q, const DirectX::XMFLOAT4& q2 = DirectX::XMFLOAT4(), float t = 0.0f);
+	 void MotionUpdate(int _frameNo);
+	 //変数
+	 VMD* vmd;
+	 AnimationMap_m animationData;
+	 unsigned int lastTime;
 
-	//1stpath
-	ID3D12DescriptorHeap* descHeap_For_1stPathRTV;
-	ID3D12DescriptorHeap* descHeap_For_1stPathSRV;
-	//ID3D12Resource* ;
-	//D3D12_CPU_DESCRIPTOR_HANDLE descriptorHandle;
-	
+////////////////////////////////
+//			マルチパス
+////////////////////////////////
+
+	 //レンダーターゲット
+	  //関数
+	  void CreateDescriptorHeapRTVforFirstPass();
+	  void CreateRenderTargetforFirstPass();
+	  //変数
+	  ID3D12DescriptorHeap* descriptorHeapRTV_FP;
+	  ID3D12Resource* multipassRTV;
+
+	 //シェーダーリソース
+	  //関数
+	  void CreateDescriptorHeapSRVforFirstPass();
+	  void CreateShaderResourceforFirstPass();
+	  //変数
+	  ID3D12DescriptorHeap* descriptorHeapSRV_FP;
+	  ID3D12Resource* multipassSRV;
+
 
 public:
 	MyDirectX12(HWND _hwnd);
@@ -242,92 +333,8 @@ public:
 	void OutLoopDx12();
 	void InLoopDx12(float angle);
 
-	//ファクトリーの作成
-	void CreateDXGIFactory();
-
-	//デバイス系
-	void CreateDevice();
+	//デバイス
 	ID3D12Device* GetDevice();
 
-	//コマンド系
-	void CreateCommandAllocator();
-	void CreateCommandQueue();
-	void CreateCommandList();
-	ID3D12CommandAllocator*	GetCommandAllocator();
-	ID3D12CommandQueue* GetCommandQueue();
-	ID3D12GraphicsCommandList3* GetCommandList();
-
-	//デスクリプター
-	void CreateDescriptorHeapRTV();
-
-	//スワップチェイン
-	void CreateSwapChain();
-
-	//レンダーターゲット
-	void CreateRenderTarget();
-
-	//ルートシグネチャ
-	void CreateRootSignature();
-
-	//フェンス
-	void CreateFence();
-
-	//ビューポート
-	void SetViewPort();
-
-	//シザーレクト
-	void SetScissorRect();
-	
-	//頂点バッファ
-	void CreateVertexBuffer();
-
-	//インデックスバッファ
-	void CreateIndexBuffer();
-
-	//深度バッファ
-	void CreateDepthBuffer();
-	
-	//シェーダー
-	void CreateShader();
-
-	//レジスタ系デスクリプター
-	void CreateDescriptorHeapRegister();
-
-	//テクスチャバッファ
-	void CreateTextureBuffer();
-
-	//白テクスチャバッファ
-	void CreateWhiteTextureBuffer();
-
-	//定数バッファ
-	void CreateConstantBuffer();
-
-	//ルートパラメーター
-	void CreateRootParameter();
-
-	//パイプラインステート
-	void CreatePiplineState();
-
-	//モデル関連
-	void LoadPMDModelData(const char * _modelFilename);
-
-	//マテリアルバッファ
-	void CreateMaterialBuffer();
-	void CreateDescriptorHeapforMaterial();
-
-	//ボーン用バッファ
-	void CreateBoneBuffer();
-
-	//ボーン回転
-	void RecursiveMatrixMultiply(BoneNode& node,DirectX::XMMATRIX& inMat);
-	void RotateBone(const char* bonename, const DirectX::XMFLOAT4& q, const DirectX::XMFLOAT4& q2 = DirectX::XMFLOAT4(),float t = 0.0f);
-
-	//VMDアニメーション適応
-	void MotionUpdate(int _frameNo);
-
-	//ポストエフェクト
-	//1stpath
-	void CreateRenderTargetFor1stPath();
-	void CreateDescriptorHeapFor1stPath();
 };
 
