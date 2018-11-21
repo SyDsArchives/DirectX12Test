@@ -325,13 +325,16 @@ private:
 	  ID3D12DescriptorHeap* descriptorHeapSRV_FP;
 	  ID3D12Resource* multipassSRV;
 
+	  //リソース
+	  void CreateFirstPassResource(ID3D12Resource * _resource, bool rtvflg);
+
 
 public:
 	MyDirectX12(HWND _hwnd);
 	~MyDirectX12();
 	
 	void OutLoopDx12();
-	void InLoopDx12(float angle);
+	void Update(float angle);
 
 	//デバイス
 	ID3D12Device* GetDevice();

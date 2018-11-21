@@ -81,7 +81,7 @@ void App::Run()
 	while (true)
 	{
 		angle += 0.1;
-		dx12->InLoopDx12(angle);
+		dx12->Update(angle);
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
 			TranslateMessage(&msg);
