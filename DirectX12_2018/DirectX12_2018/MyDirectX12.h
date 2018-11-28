@@ -187,7 +187,6 @@ private:
 	 //関数
 	 void CreateDepthBuffer();
 	 //変数
-	 D3D12_DEPTH_STENCIL_VIEW_DESC dbView = {};
 	 ID3D12Resource* depthBuffer;
 	 ID3D12DescriptorHeap* descriptorHeapDSB;
 
@@ -305,10 +304,13 @@ private:
 	 AnimationMap_m animationData;
 	 unsigned int lastTime;
 
+
 ////////////////////////////////
 //			マルチパス
 ////////////////////////////////
 
+	 ID3D12Resource* firstpassBuffer;
+	 //std::vector<ID3D12Resource*> firstpassBuffer;
 	 //レンダーターゲット
 	  //関数
 	  void CreateDescriptorHeapRTVforFirstPass();
@@ -328,6 +330,52 @@ private:
 	  //リソース
 	  void CreateFirstPassResource(ID3D12Resource * _resource, bool rtvflg);
 
+	  //頂点バッファ
+	  //関数
+	  void CreateVertexBufferforFirstPass();
+	  //変数
+	  D3D12_VERTEX_BUFFER_VIEW vbViewFP = {};
+	  ID3D12Resource* vertexBufferFP;
+
+	  //サンプラー
+	  //関数
+	  void CreateSamplerStateforFirstPass();
+	  //変数
+	  D3D12_STATIC_SAMPLER_DESC samplerDescFP = {};
+
+	  //ルートパラメーター
+	  //関数
+	  void CreateRootParameterforFirstPass();
+	  //変数
+	  D3D12_ROOT_PARAMETER rootParamFP[1] = {};
+	  D3D12_DESCRIPTOR_RANGE descriptorRangeFP[1] = {};
+
+	  //デスクリプターテーブル
+	  //関数
+	  void CreateDescriptorHeapforFirstPass();
+	  //変数
+	  ID3D12DescriptorHeap* firstPassDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
+
+
+	  //ルートシグネチャ
+	  //関数
+	  void CreateRootSignatureforFirstPass();
+	  //変数
+	  ID3D12RootSignature* rootSignatureFP;
+
+	  //パイプラインステート
+	  //関数
+	  void CreatePiplineStateforFirstPass();
+	  //変数
+	  ID3D12PipelineState* piplineStateFP;
+
+	  //シャドウデプスバッファ
+	  //関数
+	  void CreateDepthBufferforShadow();
+	  //変数
+	  ID3D12Resource* depthBufferFP;
+	  ID3D12DescriptorHeap* descriptorHeapDSBFP;
+
 
 public:
 	MyDirectX12(HWND _hwnd);
@@ -335,6 +383,8 @@ public:
 	
 	void OutLoopDx12();
 	void Update(float angle);
+
+	void testUpdate();
 
 	//デバイス
 	ID3D12Device* GetDevice();

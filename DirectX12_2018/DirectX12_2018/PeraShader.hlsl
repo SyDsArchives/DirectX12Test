@@ -23,4 +23,5 @@ Output PeraVertex(float4 pos:POSITION, float2 uv : TEXCOORD)
 float4 PeraPixel(Output input) :SV_Target
 {
 	return tex.Sample(smp,input.uv);
+	//return float4(1,1,1,1);
 }

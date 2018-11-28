@@ -16,6 +16,13 @@ const char* vmdfile = "resource/vmd/ヤゴコロダンス.vmd";
 
 const int screenBufferNum = 2;//画面バッファの数
 
+Vertex vertices[] = {
+	DirectX::XMFLOAT3(-1,-1,0),DirectX::XMFLOAT2(0,1),
+	DirectX::XMFLOAT3(-1,1,0),DirectX::XMFLOAT2(0,0),
+	DirectX::XMFLOAT3(1,-1,0),DirectX::XMFLOAT2(1,1),
+	DirectX::XMFLOAT3(1,1,0),DirectX::XMFLOAT2(1,0),
+};
+
 MyDirectX12::MyDirectX12(HWND _hwnd) : hwnd(_hwnd),
 bbindex(0), descriptorSizeRTV(0),
 dxgiFactory(nullptr), adapter(nullptr), dev(nullptr),
@@ -33,6 +40,7 @@ pmx(new PMX()),vmd(new VMD()),lastTime(0),
 //マルチパス用
 descriptorHeapRTV_FP(nullptr), multipassRTV(nullptr),
 descriptorHeapSRV_FP(nullptr), multipassSRV(nullptr)
+//firstpassBuffer(nullptr)
 {
 	//pmx->Load();
 	vmd->Load(vmdfile);
@@ -49,15 +57,21 @@ descriptorHeapSRV_FP(nullptr), multipassSRV(nullptr)
 	MyDirectX12::CreateDescriptorHeapRTVforFirstPass();
 	MyDirectX12::CreateDescriptorHeapSRVforFirstPass();
 
-
 	MyDirectX12::CreateCommandQueue();
 	MyDirectX12::CreateCommandAllocator();
 	MyDirectX12::CreateCommandList();
 	
 	MyDirectX12::CreateSwapChain();
 	MyDirectX12::CreateRenderTarget();
+	MyDirectX12::CreateRenderTargetforFirstPass();
+	MyDirectX12::CreateShaderResourceforFirstPass();
 
-	
+	MyDirectX12::CreateVertexBufferforFirstPass();
+	MyDirectX12::CreateDescriptorHeapforFirstPass();
+	MyDirectX12::CreateSamplerStateforFirstPass();
+	MyDirectX12::CreateRootParameterforFirstPass();
+	MyDirectX12::CreateRootSignatureforFirstPass();
+	MyDirectX12::CreatePiplineStateforFirstPass();
 
 	MyDirectX12::CreateFence();
 	
@@ -79,9 +93,6 @@ descriptorHeapSRV_FP(nullptr), multipassSRV(nullptr)
 
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
-
-	MyDirectX12::CreateRenderTargetforFirstPass();
-	MyDirectX12::CreateShaderResourceforFirstPass();
 }
 
 
@@ -118,20 +129,69 @@ void MyDirectX12::Update(float angle)
 	//背景色
 	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
 
+	//DSV
+	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
 
+	////マルチパス用
+	////アロケータリセット
+	//result = cmdAllocator->Reset();
+	////リストリセット
+	//result = cmdList->Reset(cmdAllocator, piplineStateFP);
+
+	////ビューポートのセット
+	//cmdList->RSSetViewports(1, &viewport);
+
+	////シザーレクトのセット
+	//cmdList->RSSetScissorRects(1, &scissorRect);
+
+	////デプスバッファのクリア
+	//cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	////1パス目
+	//auto multipassHandleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
+	////レンダーターゲットのセット
+	////クリア
+	//cmdList->ClearRenderTargetView(multipassHandleRTV, clearColor, 0, nullptr);
+	////レンダーターゲット設定
+	//cmdList->OMSetRenderTargets(1, &multipassHandleRTV, false, &handleDSV);
+
+	//cmdList->SetGraphicsRootSignature(rootSignatureFP);
+	//cmdList->IASetVertexBuffers(0, 1, &vbViewFP);
+
+	//cmdList->SetDescriptorHeaps(1, &firstPassDescHeap);
+
+	//cmdList->SetGraphicsRootDescriptorTable(0, firstPassDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+
+	//cmdList->Close();//リストのクローズ
+
+	//ExecuteCommand(1);
+
+	//swapChain->Present(1, 0);
+
+	////コマンドの完了を待機
+	//WaitWithFence();
+
+
+	////////////////////////////////////////////////////////////////////////////////////////////
 	//RTVHandleInclement
 	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 	handleRTV.ptr += (bbindex * descriptorSizeRTV);
-
-
-	//DSV
-	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
 
 
 	//アロケータリセット
 	result = cmdAllocator->Reset();
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
+
+
+	//アロケータリセット
+	result = cmdAllocator->Reset();
+	//リストリセット
+	result = cmdList->Reset(cmdAllocator, piplineStateFP);
 
 
 	//ビューポートのセット
@@ -151,15 +211,6 @@ void MyDirectX12::Update(float angle)
 	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
 	//レンダーターゲット設定
 	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
-
-
-	//マルチパス用
-	auto multipassHandleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
-	//レンダーターゲットのセット
-	//クリア
-	//cmdList->ClearRenderTargetView(multipassHandleRTV, clearColor, 0, nullptr);
-	//レンダーターゲット設定
-	//cmdList->OMSetRenderTargets(1, &multipassHandleRTV, false, &handleDSV);
 
 
 	//ルートシグネチャのセット
@@ -187,14 +238,12 @@ void MyDirectX12::Update(float angle)
 			D3D12_RESOURCE_STATE_RENDER_TARGET,
 			D3D12_RESOURCE_STATE_PRESENT));
 
-
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
 
 
+
 	//形情報のセット
-	//ラインリスト
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	//四角
 	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
@@ -216,6 +265,8 @@ void MyDirectX12::Update(float angle)
 	//マテリアル用デスクリプターヒープのセットとモデル描画
 	cmdList->SetDescriptorHeaps(1, &materialDescHeap);
 
+	//ラインリスト
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
 	auto materialHandle = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
 	auto incrementSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -245,6 +296,65 @@ void MyDirectX12::Update(float angle)
 
 	//コマンドの完了を待機
 	WaitWithFence();
+}
+
+void MyDirectX12::testUpdate()
+{
+	HRESULT result = S_OK;
+
+	//背景色
+	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
+
+	//アロケータリセット
+	result = cmdAllocator->Reset();
+	//リストリセット
+	result = cmdList->Reset(cmdAllocator, piplineStateFP);
+
+	//ビューポートのセット
+	cmdList->RSSetViewports(1, &viewport);
+
+	//シザーレクトのセット
+	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	//DSVHandle
+	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+
+	//デプスバッファのクリア
+	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	//1パス目
+	auto multipassHandleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
+	//レンダーターゲットのセット
+	//クリア
+	cmdList->ClearRenderTargetView(multipassHandleRTV, clearColor, 0, nullptr);
+	//レンダーターゲット設定
+	cmdList->OMSetRenderTargets(1, &multipassHandleRTV, false, &handleDSV);
+
+	cmdList->SetGraphicsRootSignature(rootSignatureFP);
+	cmdList->IASetVertexBuffers(0, 1, &vbViewFP);
+
+	cmdList->SetDescriptorHeaps(1, &firstPassDescHeap);
+
+	cmdList->SetGraphicsRootDescriptorTable(0, firstPassDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
+	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+
+	/*cmdList->ResourceBarrier(1,
+		&CD3DX12_RESOURCE_BARRIER::Transition(firstpassBuffer,
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			D3D12_RESOURCE_STATE_PRESENT));*/
+
+	cmdList->Close();//リストのクローズ
+
+	ExecuteCommand(1);
+
+	swapChain->Present(1, 0);
+
+	//コマンドの完了を待機
+	WaitWithFence();
+	
 }
 
 void MyDirectX12::ExecuteCommand(unsigned int cmdlistnum)
@@ -300,6 +410,18 @@ void MyDirectX12::CreateDXGIFactory()
 
 void MyDirectX12::CreateDevice()
 {
+
+	{
+		ID3D12Debug* debugController;
+		if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
+		{
+			debugController->EnableDebugLayer();
+			debugController->Release();
+		}
+	}
+
+
+
 	//アダプターの作成
 	std::vector <IDXGIAdapter*> adapters;
 	IDXGIAdapter* adapter = nullptr;
@@ -400,7 +522,6 @@ void MyDirectX12::CreateCommandList()
 void MyDirectX12::CreateSwapChain()
 {
 	//スワップチェインの作成
-
 	HRESULT result = S_OK;
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
 
@@ -583,10 +704,10 @@ void MyDirectX12::CreateTextureBuffer()
 	}
 
 	//テクスチャのフェンス(待ち)
-	cmdList->ResourceBarrier(1,
+	/*cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(textureBuffer,
 			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));*/
 	cmdList->Close();
 	ExecuteCommand(1);
 	WaitWithFence();
@@ -642,10 +763,10 @@ void MyDirectX12::CreateWhiteTextureBuffer()
 	}
 
 	//テクスチャのフェンス(待ち)
-	cmdList->ResourceBarrier(1,
+	/*cmdList->ResourceBarrier(1,
 		&CD3DX12_RESOURCE_BARRIER::Transition(whiteTextureBuffer,
 			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));*/
 	cmdList->Close();
 	ExecuteCommand(1);
 	WaitWithFence();
@@ -894,6 +1015,7 @@ void MyDirectX12::CreateDepthBuffer()
 	}
 
 	//深度バッファビューの生成
+	D3D12_DEPTH_STENCIL_VIEW_DESC dbView = {};
 	dbView.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 	dbView.Format = DXGI_FORMAT_D32_FLOAT;
 	dbView.Texture2D.MipSlice = 0;
@@ -931,7 +1053,6 @@ void MyDirectX12::CreateConstantBuffer()
 
 	result = dev->CreateCommittedResource(&cbvHeapProperties,
 		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-		//&CD3DX12_RESOURCE_DESC::Buffer(size),
 		&desc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
@@ -1180,7 +1301,7 @@ void MyDirectX12::CreateDescriptorHeapforMaterial()
 void MyDirectX12::CreateSamplerState()
 {
 	//サンプラー s[0]
-	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない//D3D12_FILTER_MIN_MAG_MAP_LINEARをペラポリで使う
+	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
 	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(U方向)
 	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(V方向)
 	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(W方向)
@@ -1444,23 +1565,22 @@ void MyDirectX12::CreateDescriptorHeapSRVforFirstPass()
 
 void MyDirectX12::CreateRenderTargetforFirstPass()
 {
+	HRESULT result;
 	//レンダーターゲット生成
-	CreateFirstPassResource(multipassRTV, true);
+	CreateFirstPassResource(firstpassBuffer, true);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart());
 
-	auto handle = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
-	auto hSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-
-	handle.ptr += hSize;
-
-	dev->CreateRenderTargetView(multipassRTV, nullptr, handle);
-
+	result = swapChain->GetBuffer(0, IID_PPV_ARGS(&firstpassBuffer));
+	
+	dev->CreateRenderTargetView(firstpassBuffer, nullptr, handle);
 }
 
 void MyDirectX12::CreateShaderResourceforFirstPass()
 {
 	HRESULT result;
 
-	CreateFirstPassResource(multipassSRV, false);
+
+	CreateFirstPassResource(firstpassBuffer, false);
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -1469,11 +1589,11 @@ void MyDirectX12::CreateShaderResourceforFirstPass()
 	srvDesc.Texture2D.MipLevels = 1;
 
 	auto handle = descriptorHeapSRV_FP->GetCPUDescriptorHandleForHeapStart();
-	auto hSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	auto hsize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	handle.ptr += hSize;
-
-	dev->CreateShaderResourceView(multipassSRV, &srvDesc, handle);
+	dev->CreateShaderResourceView(firstpassBuffer, &srvDesc, handle);
+	handle.ptr += hsize;
+	
 }
 
 void MyDirectX12::CreateFirstPassResource(ID3D12Resource* _resource, bool rtvflg)
@@ -1487,16 +1607,7 @@ void MyDirectX12::CreateFirstPassResource(ID3D12Resource* _resource, bool rtvflg
 	hProp.CreationNodeMask = 1;
 	hProp.VisibleNodeMask = 1;
 
-	D3D12_RESOURCE_DESC rDesc = {};
-	rDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-	rDesc.Width = sizeof(renderTarget[0]);
-	rDesc.Height = 1;
-	rDesc.DepthOrArraySize = 1;
-	rDesc.SampleDesc.Count = 1;
-	rDesc.SampleDesc.Quality = 1;
-	rDesc.MipLevels = 1;
-	rDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	rDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	D3D12_RESOURCE_DESC rDesc = renderTarget[0]->GetDesc();
 	rDesc.Flags = rtvflg ? D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET : D3D12_RESOURCE_FLAG_NONE;
 
 	result = dev->CreateCommittedResource(
@@ -1506,4 +1617,161 @@ void MyDirectX12::CreateFirstPassResource(ID3D12Resource* _resource, bool rtvflg
 		rtvflg ? D3D12_RESOURCE_STATE_RENDER_TARGET : D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&_resource));
+
+	if (result != S_OK)
+	{
+		auto removereason = dev->GetDeviceRemovedReason();
+		int a = 0;
+	}
+}
+
+void MyDirectX12::CreateVertexBufferforFirstPass()
+{
+	HRESULT result;
+	result = dev->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(sizeof(vertices)),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&vertexBufferFP));
+
+	//mapで頂点情報をGPUに送る
+	//Vertex* vertex = nullptr;
+	//result = vertexBufferFP->Map(0, nullptr, (void**)(&vertex));
+	//std::copy(std::begin(vertices), std::end(vertices), vertex);
+	//vertexBufferFP->Unmap(0, nullptr);
+
+	vbViewFP.BufferLocation = vertexBufferFP->GetGPUVirtualAddress();
+	vbViewFP.SizeInBytes = sizeof(vertices);
+	vbViewFP.StrideInBytes = sizeof(Vertex);
+
+}
+
+void MyDirectX12::CreateSamplerStateforFirstPass()
+{
+	//サンプラー s[0]
+	samplerDescFP.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;//特別なフィルタを使用しない//D3D12_FILTER_MIN_MAG_MIP_LINEARをペラポリで使う
+	samplerDescFP.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(U方向)
+	samplerDescFP.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(V方向)
+	samplerDescFP.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(W方向)
+	samplerDescFP.MaxLOD = D3D12_FLOAT32_MAX;//MIPMAP上限なし
+	samplerDescFP.MinLOD = 0.0f;//MIPMAP下限なし
+	samplerDescFP.MipLODBias = 0.0f;//MIPMAPのバイアス
+	samplerDescFP.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;//エッジの色(黒透明)
+	samplerDescFP.ShaderRegister = 0;//使用するシェーダレジスタ
+	samplerDescFP.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;//シェーダーに対するデータ公開範囲
+	samplerDescFP.RegisterSpace = 0;
+	samplerDescFP.MaxAnisotropy = 0;//.Filter が Anisotropy の時のみ有効
+	samplerDescFP.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+}
+
+void MyDirectX12::CreateRootParameterforFirstPass()
+{
+	//レンジの設定
+	//t[0]
+	descriptorRangeFP[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	descriptorRangeFP[0].BaseShaderRegister = 0;//レジスタ番号
+	descriptorRangeFP[0].NumDescriptors = 1;
+	descriptorRangeFP[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
+	//ルートパラメーターの設定
+	//register
+	rootParamFP[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParamFP[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRangeFP);
+	rootParamFP[0].DescriptorTable.pDescriptorRanges = descriptorRangeFP;//対応するレンジへのポインタ
+	rootParamFP[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	
+}
+
+void MyDirectX12::CreateDescriptorHeapforFirstPass()
+{
+	HRESULT result = S_OK;
+	//registerのCBV,SRV,UAV用のDescriptorHeapDescの生成
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.NumDescriptors = 1;
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&firstPassDescHeap));
+}
+
+void MyDirectX12::CreateRootSignatureforFirstPass()
+{
+	HRESULT result = S_OK;
+
+	ID3DBlob* signature = nullptr;
+	ID3DBlob* error = nullptr;
+
+	D3D12_ROOT_SIGNATURE_DESC rsDesc = {};
+	rsDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rsDesc.NumStaticSamplers = 1;
+	rsDesc.pStaticSamplers = &samplerDescFP;
+	rsDesc.NumParameters = _countof(rootParamFP);
+	rsDesc.pParameters = rootParamFP;
+
+	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+
+	result = dev->CreateRootSignature(0, signature->GetBufferPointer(),
+		signature->GetBufferSize(),
+		IID_PPV_ARGS(&rootSignatureFP));
+}
+
+void MyDirectX12::CreatePiplineStateforFirstPass()
+{
+	HRESULT result = S_OK;
+
+	//シェーダー
+	ID3DBlob* peraVS;
+	ID3DBlob* peraPS;
+	//頂点シェーダ
+	result = D3DCompileFromFile((L"PeraShader.hlsl"), nullptr, nullptr, "PeraVertex", "vs_5_0", D3DCOMPILE_DEBUG |
+		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &peraVS, nullptr);
+
+	//ピクセルシェーダ
+	result = D3DCompileFromFile((L"PeraShader.hlsl"), nullptr, nullptr, "PeraPixel", "ps_5_0", D3DCOMPILE_DEBUG |
+		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &peraPS, nullptr);
+
+	//シェーダへ送る情報(頂点レイアウト)
+	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
+	};
+
+	//パイプラインステート
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
+
+	//ルートシグネチャと頂点レイアウト
+	gpsDesc.pRootSignature = rootSignatureFP;
+	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
+	gpsDesc.InputLayout.NumElements = _countof(inputLayouts);
+	//シェーダ
+	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(peraVS);
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(peraPS);
+	//ラスタライザ
+	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	//レンダーターゲット
+	gpsDesc.NumRenderTargets = 1;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+													   
+	gpsDesc.DepthStencilState.DepthEnable = true;
+	gpsDesc.DepthStencilState.StencilEnable = false;
+	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+
+	//その他
+	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.NodeMask = 0;
+	gpsDesc.SampleDesc.Count = 1;
+	gpsDesc.SampleDesc.Quality = 0;
+	gpsDesc.SampleMask = 0xffffffff;
+	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+
+	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineStateFP));
+}
+
+void MyDirectX12::CreateDepthBufferforShadow()
+{
 }
