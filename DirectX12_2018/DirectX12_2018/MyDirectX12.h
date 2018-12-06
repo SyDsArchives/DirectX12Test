@@ -309,72 +309,75 @@ private:
 //			マルチパス
 ////////////////////////////////
 
+//ファーストパス
 	 ID3D12Resource* firstpassBuffer;
-	 //std::vector<ID3D12Resource*> firstpassBuffer;
+
 	 //レンダーターゲット
-	  //関数
-	  void CreateDescriptorHeapRTVforFirstPass();
-	  void CreateRenderTargetforFirstPass();
-	  //変数
-	  ID3D12DescriptorHeap* descriptorHeapRTV_FP;
-	  ID3D12Resource* multipassRTV;
+	 //関数
+	 void CreateDescriptorHeapRTVforFirstPass();
+	 void CreateRenderTargetforFirstPass();
+	 //変数
+	 ID3D12DescriptorHeap* descriptorHeapRTV_FP;
 
 	 //シェーダーリソース
-	  //関数
-	  void CreateDescriptorHeapSRVforFirstPass();
-	  void CreateShaderResourceforFirstPass();
-	  //変数
-	  ID3D12DescriptorHeap* descriptorHeapSRV_FP;
-	  ID3D12Resource* multipassSRV;
+	 //関数
+	 void CreateDescriptorHeapSRVforFirstPass();
+	 void CreateShaderResourceforFirstPass();
+	 //変数
+	 ID3D12DescriptorHeap* descriptorHeapSRV_FP;
 
-	  //リソース
-	  void CreateFirstPassResource(ID3D12Resource * _resource, bool rtvflg);
+	 //@param bool rtvflag 作成したバッファーをレンダーターゲットとして使用するかどうか
+	 //リソース
+	 void CreateMultiPassResource(ID3D12Resource * _resource, bool rtvflg);
 
+//セカンドパス
+	 ID3D12Resource* secondpassBuffer;
+	//レンダーターゲット
+	//関数
+	 void CreateDescriptorHeapRTVforSecondPass();
+	 void CreateRenderTargetforSecondPass();
+	 //変数
+	 ID3D12DescriptorHeap* descriptorHeapRTV_SP;
+
+//サードパス
 	  //頂点バッファ
 	  //関数
-	  void CreateVertexBufferforFirstPass();
+	  void CreateVertexBufferforPeraPolygon();
 	  //変数
-	  D3D12_VERTEX_BUFFER_VIEW vbViewFP = {};
-	  ID3D12Resource* vertexBufferFP;
+	  D3D12_VERTEX_BUFFER_VIEW vbView_pera = {};
+	  ID3D12Resource* vertexBuffer_pera;
+
+	  //テクスチャ
+	  //関数
+	  void CreateDescriptorHeapforPeraTexture();
+	  void CreatePeraPolygonTexture();
+	  //変数
+	  ID3D12DescriptorHeap* peraTextureDescriptorHeap;
 
 	  //サンプラー
 	  //関数
-	  void CreateSamplerStateforFirstPass();
+	  void CreateSamplerStateforPeraPolygon();
 	  //変数
-	  D3D12_STATIC_SAMPLER_DESC samplerDescFP = {};
+	  D3D12_STATIC_SAMPLER_DESC samplerDesc_pera = {};
 
 	  //ルートパラメーター
 	  //関数
-	  void CreateRootParameterforFirstPass();
+	  void CreateRootParameterforPeraPolygon();
 	  //変数
-	  D3D12_ROOT_PARAMETER rootParamFP[1] = {};
-	  D3D12_DESCRIPTOR_RANGE descriptorRangeFP[1] = {};
-
-	  //デスクリプターテーブル
-	  //関数
-	  void CreateDescriptorHeapforFirstPass();
-	  //変数
-	  ID3D12DescriptorHeap* firstPassDescHeap;//その他(テクスチャ、定数)デスクリプタヒープ
-
+	  D3D12_ROOT_PARAMETER rootParam_pera[1] = {};
+	  D3D12_DESCRIPTOR_RANGE descriptorRange_pera[1] = {};
 
 	  //ルートシグネチャ
 	  //関数
-	  void CreateRootSignatureforFirstPass();
+	  void CreateRootSignatureforPeraPolygon();
 	  //変数
-	  ID3D12RootSignature* rootSignatureFP;
+	  ID3D12RootSignature* rootSignature_pera;
 
 	  //パイプラインステート
 	  //関数
-	  void CreatePiplineStateforFirstPass();
+	  void CreatePiplineStateforPeraPolygon();
 	  //変数
-	  ID3D12PipelineState* piplineStateFP;
-
-	  //シャドウデプスバッファ
-	  //関数
-	  void CreateDepthBufferforShadow();
-	  //変数
-	  ID3D12Resource* depthBufferFP;
-	  ID3D12DescriptorHeap* descriptorHeapDSBFP;
+	  ID3D12PipelineState* piplineState_pera;
 
 
 public:
@@ -382,6 +385,9 @@ public:
 	~MyDirectX12();
 	
 	void OutLoopDx12();
+
+	void firstpassUpdate();
+
 	void Update(float angle);
 
 	void testUpdate();
