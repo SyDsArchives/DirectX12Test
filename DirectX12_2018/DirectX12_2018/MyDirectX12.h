@@ -312,6 +312,7 @@ private:
 //ファーストパス
 	 ID3D12Resource* firstpassBuffer;
 
+
 	 //レンダーターゲット
 	 //関数
 	 void CreateDescriptorHeapRTVforFirstPass();
@@ -383,10 +384,6 @@ private:
 public:
 	MyDirectX12(HWND _hwnd);
 	~MyDirectX12();
-	
-	void OutLoopDx12();
-
-	void firstpassUpdate();
 
 	void Update(float angle);
 
