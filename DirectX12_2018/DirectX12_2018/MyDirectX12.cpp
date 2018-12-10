@@ -1091,21 +1091,21 @@ void MyDirectX12::CreateToonTextureBuffer()
 			heapprop.CreationNodeMask = 1;
 			heapprop.VisibleNodeMask = 1;
 
-			D3D12_RESOURCE_DESC texResourceDesc = {};
-			texResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-			texResourceDesc.Width = imgData.width;//画像の横幅
-			texResourceDesc.Height = imgData.height;//画像の縦幅
-			texResourceDesc.DepthOrArraySize = 1;
-			texResourceDesc.MipLevels = 1;
-			texResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			texResourceDesc.SampleDesc.Count = 1;
-			texResourceDesc.SampleDesc.Quality = 0;
-			texResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-			texResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+			D3D12_RESOURCE_DESC toonDesc = {};
+			toonDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			toonDesc.Width = imgData.width;//画像の横幅
+			toonDesc.Height = imgData.height;//画像の縦幅
+			toonDesc.DepthOrArraySize = 1;
+			toonDesc.MipLevels = 1;
+			toonDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			toonDesc.SampleDesc.Count = 1;
+			toonDesc.SampleDesc.Quality = 0;
+			toonDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			toonDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 
 			result = dev->CreateCommittedResource(&heapprop,
 				D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-				&texResourceDesc,
+				&toonDesc,
 				D3D12_RESOURCE_STATE_GENERIC_READ,
 				nullptr,
 				IID_PPV_ARGS(&toonBuffer));
@@ -1607,11 +1607,11 @@ void MyDirectX12::CreateRootParameter()
 	materialRange[1].BaseShaderRegister = 1;//レジスタ番号
 	materialRange[1].NumDescriptors = pmdmaterials.size();
 	materialRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-	//t[2]
-	toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
-	toonRange[0].BaseShaderRegister = 2;//レジスタ番号
-	toonRange[0].NumDescriptors = toonTexNames.size();
-	toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	////t[2]
+	//toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	//toonRange[0].BaseShaderRegister = 2;//レジスタ番号
+	//toonRange[0].NumDescriptors = 10;
+	//toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1622,18 +1622,20 @@ void MyDirectX12::CreateRootParameter()
 	//material
 	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[1].DescriptorTable.NumDescriptorRanges = _countof(materialRange);
-	rootParam[1].DescriptorTable.pDescriptorRanges = materialRange;//対応するレンジへのポインタ
+	rootParam[1].DescriptorTable.pDescriptorRanges = materialRange;
 	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	//bone
 	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
 	rootParam[2].Descriptor.RegisterSpace = 0;
 	rootParam[2].Descriptor.ShaderRegister = 2;//レジスタ番号
 	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-	//toon
-	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[2].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
-	rootParam[2].DescriptorTable.pDescriptorRanges = toonRange;//レジスタ番号
-	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	////toon
+	//rootParam[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	//rootParam[3].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
+	//rootParam[3].DescriptorTable.pDescriptorRanges = toonRange;
+	//rootParam[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+
 }
 
 void MyDirectX12::CreateRootSignature()

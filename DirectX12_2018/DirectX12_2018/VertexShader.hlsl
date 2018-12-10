@@ -1,7 +1,7 @@
 SamplerState smp:register(s0);
 Texture2D<float4> tex:register(t0);
 Texture2D<float4> tex2:register(t1);
-Texture2D<float4> clut:register(t2);
+Texture2D<float4> toontex:register(t2);
 
 cbuffer mat:register(b0)
 {
@@ -70,7 +70,7 @@ float4 ps(Output output):SV_Target
 	float brightness = dot(output.normal.xyz, light) + ambientNum;
 
 	//ÉgÉDÅ[Éì
-	float4 toon = clut.Sample(smp, float2(0, 1.0 - brightness));
+	float4 toon = toontex.Sample(smp, float2(0, 1.0 - brightness));
 
 	float3 color;
 	float alpha;
@@ -79,7 +79,9 @@ float4 ps(Output output):SV_Target
 	alpha = diffuse.a;
 
 	/*float4 matcol = float4(saturate(toon.rgb*diffuse.rgb + specular.rgb*spec + ambient.rgb),
-		diffuse.a);*/	color = saturate(toon.rgb * color.rgb);
+		diffuse.a);*/
+
+	//color = saturate(toon.rgb * color.rgb);
 
 	return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
 }
