@@ -330,7 +330,8 @@ void MyDirectX12::testUpdate()
 
 		auto handleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
 		cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-		cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+		cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
+		
 
 		cmdList->SetGraphicsRootSignature(rootSignature);
 
@@ -341,6 +342,7 @@ void MyDirectX12::testUpdate()
 
 		cmdList->Close();
 		ExecuteCommand(1);
+		//swapChain->Present(1, 0);
 		WaitWithFence();
 	}
 	///////////////////////////////
@@ -373,7 +375,7 @@ void MyDirectX12::testUpdate()
 
 		auto handleRTV = descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart();
 		cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-		cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+		cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
 
 		cmdList->SetGraphicsRootSignature(rootSignature);
 		
@@ -437,6 +439,7 @@ void MyDirectX12::testUpdate()
 		handleRTV.ptr += (bbindex * handleSize);
 		cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
 		cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+		
 		
 		cmdList->SetGraphicsRootSignature(rootSignature_pera);
 
@@ -952,6 +955,78 @@ void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
 			fread(&pmdbones.boneProp[i], sizeof(BoneProperty), 1, miku_pmd);
 		}
 	}
+
+
+	//IK読み込み
+	//IKの読み込み
+	unsigned short ikNum = 0;
+	fread(&ikNum, sizeof(ikNum), 1, miku_pmd);
+
+	pmdIK.clear();
+	pmdIK.resize(ikNum);
+
+	//IK情報分読み込む
+	{
+		for (int i = 0; i < ikNum; ++i)
+		{
+			fread(&pmdIK[i].ikIndex, sizeof(pmdIK[i].ikIndex), 1, miku_pmd);
+			fread(&pmdIK[i].targetBoneIndex, sizeof(pmdIK[i].targetBoneIndex), 1, miku_pmd);
+			fread(&pmdIK[i].ikLength, sizeof(pmdIK[i].ikLength), 1, miku_pmd);
+			fread(&pmdIK[i].iterations, sizeof(pmdIK[i].iterations), 1, miku_pmd);
+			fread(&pmdIK[i].control_weight, sizeof(pmdIK[i].control_weight), 1, miku_pmd);
+			pmdIK[i].ikChildrenIndex.resize(pmdIK[i].ikLength);
+			for (int j = 0; j < pmdIK[i].ikChildrenIndex.size(); ++j)
+			{
+				fread(&pmdIK[i].ikChildrenIndex[j], sizeof(unsigned short), 1, miku_pmd);
+			}
+			
+		}
+	}
+
+	unsigned short skinNum = 0;
+	fread(&skinNum, sizeof(unsigned short), 1, miku_pmd);
+
+	{
+		for (int i = 0; i < skinNum; ++i) {
+			fseek(miku_pmd, 20, SEEK_CUR);
+			unsigned int vertNum = 0;
+			fread(&vertNum, sizeof(vertNum), 1, miku_pmd);
+			fseek(miku_pmd, 1, SEEK_CUR);
+			fseek(miku_pmd, 16 * vertNum, SEEK_CUR);
+		}
+	}
+
+	unsigned char skinDispNum = 0;
+	fread(&skinDispNum, sizeof(skinDispNum), 1, miku_pmd);
+	fseek(miku_pmd, skinDispNum * sizeof(unsigned short), SEEK_CUR);
+
+	//表示用ボーン名
+	unsigned char boneDispNum = 0;
+	fread(&boneDispNum, sizeof(boneDispNum), 1, miku_pmd);
+	fseek(miku_pmd, 50 * boneDispNum, SEEK_CUR);
+
+	//表示ボーンリスト
+	unsigned int dispBoneNum = 0;
+	fread(&dispBoneNum, sizeof(dispBoneNum), 1, miku_pmd);
+
+	fseek(miku_pmd, 3 * dispBoneNum, SEEK_CUR);
+
+	//英名
+	//英名対応フラグ
+	unsigned char englishFlg = 0;
+	fread(&englishFlg, sizeof(englishFlg), 1, miku_pmd);
+	if (englishFlg) {
+		//モデル名20バイト+256バイトコメント
+		fseek(miku_pmd, 20 + 256, SEEK_CUR);
+		//ボーン名20バイト*ボーン数
+		fseek(miku_pmd, pmdbones.boneNum * 20, SEEK_CUR);
+		//(表情数-1)*20バイト。-1なのはベース部分ぶん
+		fseek(miku_pmd, (skinNum - 1) * 20, SEEK_CUR);
+		//ボーン数*50バイト。
+		fseek(miku_pmd, boneDispNum * 50, SEEK_CUR);
+	}
+
+	fread(toonTexNames.data(), sizeof(char) * 100, toonTexNames.size(), miku_pmd);
 
 	//ファイルを閉じる
 	fclose(miku_pmd);

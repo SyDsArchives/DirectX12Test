@@ -11,6 +11,7 @@
 #include <vector>
 #include <functional>
 #include <map>
+#include <array>
 
 #include "PMX.h"
 
@@ -85,6 +86,37 @@ struct BoneNode {
 	Position3f startPos;
 	Position3f endPos;
 	std::vector<BoneNode*> children;
+};
+
+#pragma pack(1)
+struct PMDIK {
+	unsigned short ikIndex;
+	unsigned short targetBoneIndex;
+	unsigned char ikLength;
+	unsigned short iterations;
+	float control_weight;
+	std::vector<unsigned short> ikChildrenIndex;//iklength;
+};
+#pragma pack()
+
+struct PMDSkinVertData
+{
+	unsigned short skin_Vert_Index;
+	float skin_Vert_Pos[3];
+};
+
+struct PMDSkinVertDataNonBase
+{
+	unsigned short skin_Vert_Index;
+	float skin_Vert_Pos[3];
+};
+
+struct PMDSkinData
+{
+	char skinName[20];
+	unsigned short skinCount;
+	unsigned char skinType;
+	std::vector<PMDSkinVertData> pmdSkinVertData;
 };
 
 struct MaterialColorRGBA
@@ -268,6 +300,8 @@ private:
 	 std::vector<unsigned short> pmdindices;
 	 std::vector<PMDMaterials> pmdmaterials;
 	 unsigned int materialNum;
+	 std::vector<PMDIK> pmdIK;
+	 std::array<char[100], 10> toonTexNames;
 
 	//マテリアルバッファ
 	 //関数
