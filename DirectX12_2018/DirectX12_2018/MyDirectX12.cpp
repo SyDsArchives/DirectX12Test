@@ -65,6 +65,7 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateDescriptorHeapSRVforFirstPass();
 	MyDirectX12::CreateDescriptorHeapRTVforSecondPass();
 	MyDirectX12::CreateDescriptorHeapforPeraTexture();
+	MyDirectX12::CreateDescriptorHeapSRVforToon();
 
 	MyDirectX12::CreateCommandQueue();
 	MyDirectX12::CreateCommandAllocator();
@@ -101,6 +102,7 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::CreateBoneBuffer();
+	MyDirectX12::CreateToonTextureBuffer();
 
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
@@ -808,15 +810,6 @@ void MyDirectX12::CreateTextureBuffer()
 			int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
 		}
 	}
-
-	//テクスチャのフェンス(待ち)
-	/*cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(textureBuffer,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));*/
-	cmdList->Close();
-	ExecuteCommand(1);
-	WaitWithFence();
 }
 
 void MyDirectX12::CreateWhiteTextureBuffer()
@@ -867,15 +860,6 @@ void MyDirectX12::CreateWhiteTextureBuffer()
 		const char* er_message = "S_OK以外が返されました";
 		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
 	}
-
-	//テクスチャのフェンス(待ち)
-	/*cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(whiteTextureBuffer,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));*/
-	cmdList->Close();
-	ExecuteCommand(1);
-	WaitWithFence();
 }
 
 void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
@@ -1054,6 +1038,113 @@ void MyDirectX12::LoadPMDModelData(const char* _modelFilename)
 			auto parentName = mbones[mbones[b.second.boneIdx].parentBoneIndex].boneName;
 			boneMap[parentName].children.push_back(&b.second);
 		}
+	}
+}
+
+std::string MyDirectX12::GetToonPathFromIdx(int idx)
+{
+	auto& toonPaths = toonTexNames;
+
+	std::string path = "resource/img/toon/";
+
+	path = path + toonPaths[idx];
+
+	return path;
+}
+
+void MyDirectX12::CreateDescriptorHeapSRVforToon()
+{
+	HRESULT result;
+	auto size = toonTexNames.size();
+	//ヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC hDesc = {};
+	hDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	hDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	hDesc.NodeMask = 0;
+	hDesc.NumDescriptors = size;
+
+	//ヒープ生成
+	result = dev->CreateDescriptorHeap(&hDesc, IID_PPV_ARGS(&toonDescriptorHeap));
+}
+
+void MyDirectX12::CreateToonTextureBuffer()
+{
+	HRESULT result = S_OK;
+
+	//イメージ読み込み用クラス
+	LoadImageFile lif;
+	auto size = toonTexNames.size();
+	auto handle = toonDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	for (int i = 0; i < size; ++i)
+	{
+		//画像データの読み込み
+		auto toonTexture = GetToonPathFromIdx(i);
+		ImageFileData imgData = lif.Load(toonTexture.c_str());
+
+		{
+			D3D12_HEAP_PROPERTIES heapprop = {};
+			heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
+			heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+			heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+			heapprop.CreationNodeMask = 1;
+			heapprop.VisibleNodeMask = 1;
+
+			D3D12_RESOURCE_DESC texResourceDesc = {};
+			texResourceDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			texResourceDesc.Width = imgData.width;//画像の横幅
+			texResourceDesc.Height = imgData.height;//画像の縦幅
+			texResourceDesc.DepthOrArraySize = 1;
+			texResourceDesc.MipLevels = 1;
+			texResourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			texResourceDesc.SampleDesc.Count = 1;
+			texResourceDesc.SampleDesc.Quality = 0;
+			texResourceDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			texResourceDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+			result = dev->CreateCommittedResource(&heapprop,
+				D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+				&texResourceDesc,
+				D3D12_RESOURCE_STATE_GENERIC_READ,
+				nullptr,
+				IID_PPV_ARGS(&toonBuffer));
+			if (result != S_OK)
+			{
+				const char* er_title = " CreateTextureBuffer関数内エラー";
+				const char* er_message = "S_OK以外が返されました";
+				int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+			}
+		}
+
+		{
+			//テクスチャの書き込み
+			D3D12_RESOURCE_DESC desc = {};
+			desc = toonBuffer->GetDesc();
+			D3D12_BOX box = {};
+			box.left = 0;
+			box.right = (desc.Width);
+			box.top = 0;
+			box.bottom = (desc.Height);
+			box.front = 0;
+			box.back = 1;
+			result = toonBuffer->WriteToSubresource(0, &box, imgData.data.data(), 4 * box.right, imgData.imageSize);
+			if (result != S_OK)
+			{
+				const char* er_title = " CreateTextureBuffer関数内エラー";
+				const char* er_message = "S_OK以外が返されました";
+				int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+			}
+		}
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+		desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		desc.Texture2D.MipLevels = 1;
+		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+		dev->CreateShaderResourceView(toonBuffer, &desc, handle);
+		handle.ptr += h_size;
 	}
 }
 
@@ -1516,6 +1607,11 @@ void MyDirectX12::CreateRootParameter()
 	materialRange[1].BaseShaderRegister = 1;//レジスタ番号
 	materialRange[1].NumDescriptors = pmdmaterials.size();
 	materialRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//t[2]
+	toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	toonRange[0].BaseShaderRegister = 2;//レジスタ番号
+	toonRange[0].NumDescriptors = toonTexNames.size();
+	toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1533,6 +1629,11 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[2].Descriptor.RegisterSpace = 0;
 	rootParam[2].Descriptor.ShaderRegister = 2;//レジスタ番号
 	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
+	//toon
+	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[2].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
+	rootParam[2].DescriptorTable.pDescriptorRanges = toonRange;//レジスタ番号
+	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignature()

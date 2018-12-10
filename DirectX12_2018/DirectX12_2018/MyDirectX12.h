@@ -265,10 +265,11 @@ private:
 	 //関数
 	 void CreateRootParameter();
 	 //変数
-	 D3D12_ROOT_PARAMETER rootParam[3] = {};
+	 D3D12_ROOT_PARAMETER rootParam[4] = {};
 	 D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE boneRange[1] = {};
+	 D3D12_DESCRIPTOR_RANGE toonRange[1] = {};
 
 	//テクスチャバッファ
 	 //関数
@@ -293,6 +294,7 @@ private:
 	//PMD関連
 	 //関数
 	 void LoadPMDModelData(const char * _modelFilename);
+	 std::string GetToonPathFromIdx(int idx);
 	 //変数
 	 char magic[3];
 	 PMDData pmddata = {};
@@ -301,7 +303,16 @@ private:
 	 std::vector<PMDMaterials> pmdmaterials;
 	 unsigned int materialNum;
 	 std::vector<PMDIK> pmdIK;
+	 
+
+	 //モデルトゥーン
+	 //関数
+	 void CreateDescriptorHeapSRVforToon();
+	 void CreateToonTextureBuffer();
+	 //変数
 	 std::array<char[100], 10> toonTexNames;
+	 ID3D12DescriptorHeap* toonDescriptorHeap;
+	 ID3D12Resource* toonBuffer;
 
 	//マテリアルバッファ
 	 //関数
