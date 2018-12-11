@@ -1055,13 +1055,13 @@ std::string MyDirectX12::GetToonPathFromIdx(int idx)
 void MyDirectX12::CreateDescriptorHeapSRVforToon()
 {
 	HRESULT result;
-	auto size = toonTexNames.size();
+	auto descNum = pmdmaterials.size();
 	//ヒープ
 	D3D12_DESCRIPTOR_HEAP_DESC hDesc = {};
 	hDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	hDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 	hDesc.NodeMask = 0;
-	hDesc.NumDescriptors = size;
+	hDesc.NumDescriptors = descNum;
 
 	//ヒープ生成
 	result = dev->CreateDescriptorHeap(&hDesc, IID_PPV_ARGS(&toonDescriptorHeap));
@@ -1077,47 +1077,53 @@ void MyDirectX12::CreateToonTextureBuffer()
 	auto handle = toonDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	auto h_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	for (int i = 0; i < size; ++i)
+	for (auto& mat : pmdmaterials)
 	{
-		//画像データの読み込み
-		auto toonTexture = GetToonPathFromIdx(i);
-		ImageFileData imgData = lif.Load(toonTexture.c_str());
-
+		if (mat.toonIndex == 0)
 		{
-			D3D12_HEAP_PROPERTIES heapprop = {};
-			heapprop.Type = D3D12_HEAP_TYPE_CUSTOM;
-			heapprop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
-			heapprop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
-			heapprop.CreationNodeMask = 1;
-			heapprop.VisibleNodeMask = 1;
+			toonBuffer = InitBuffer(256, 256);
 
-			D3D12_RESOURCE_DESC toonDesc = {};
-			toonDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-			toonDesc.Width = imgData.width;//画像の横幅
-			toonDesc.Height = imgData.height;//画像の縦幅
-			toonDesc.DepthOrArraySize = 1;
-			toonDesc.MipLevels = 1;
-			toonDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-			toonDesc.SampleDesc.Count = 1;
-			toonDesc.SampleDesc.Quality = 0;
-			toonDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
-			toonDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+			struct Color {
+				Color() :r(0), g(0), b(0), a(0) {}
+				Color(unsigned char inr, unsigned char ing, unsigned char inb, unsigned
+					char ina) :r(inr), g(ing), b(inb), a(ina) {}
+				unsigned char r, g, b, a;
+			};
 
-			result = dev->CreateCommittedResource(&heapprop,
-				D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
-				&toonDesc,
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&toonBuffer));
-			if (result != S_OK)
-			{
-				const char* er_title = " CreateTextureBuffer関数内エラー";
-				const char* er_message = "S_OK以外が返されました";
-				int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+			std::vector<Color> data(4 * 256);
+			auto it = data.begin();
+			unsigned char brightness = 255;
+
+			for (; it != data.end(); it += 4) {
+				std::fill_n(it, 4, Color(brightness, brightness, brightness, 0xff));
+				--brightness;
 			}
-		}
 
+			//テクスチャの書き込み
+			D3D12_RESOURCE_DESC desc = {};
+			desc = toonBuffer->GetDesc();
+			D3D12_BOX box = {};
+			box.left = 0;
+			box.right = (desc.Width);
+			box.top = 0;
+			box.bottom = (desc.Height);
+			box.front = 0;
+			box.back = 1;
+			result = toonBuffer->WriteToSubresource(0, nullptr, data.data(), 4 * sizeof(Color), data.size() * sizeof(Color));
+
+			cmdList->Close();
+			ExecuteCommand(1);
+			WaitWithFence();
+			cmdAllocator->Reset();
+			cmdList->Reset(cmdAllocator, nullptr);
+		}
+		else 
 		{
+			auto toonTexture = GetToonPathFromIdx(mat.toonIndex);
+			ImageFileData imgData = lif.Load(toonTexture.c_str());
+
+			toonBuffer = InitBuffer(imgData.width, imgData.height);
+
 			//テクスチャの書き込み
 			D3D12_RESOURCE_DESC desc = {};
 			desc = toonBuffer->GetDesc();
@@ -1129,12 +1135,12 @@ void MyDirectX12::CreateToonTextureBuffer()
 			box.front = 0;
 			box.back = 1;
 			result = toonBuffer->WriteToSubresource(0, &box, imgData.data.data(), 4 * box.right, imgData.imageSize);
-			if (result != S_OK)
-			{
-				const char* er_title = " CreateTextureBuffer関数内エラー";
-				const char* er_message = "S_OK以外が返されました";
-				int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
-			}
+
+			cmdList->Close();
+			ExecuteCommand(1);
+			WaitWithFence();
+			cmdAllocator->Reset();
+			cmdList->Reset(cmdAllocator, nullptr);
 		}
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
@@ -1146,6 +1152,40 @@ void MyDirectX12::CreateToonTextureBuffer()
 		dev->CreateShaderResourceView(toonBuffer, &desc, handle);
 		handle.ptr += h_size;
 	}
+}
+
+ID3D12Resource* MyDirectX12::InitBuffer(UINT64 _width,UINT64 _height)
+{
+	HRESULT result;
+	ID3D12Resource* retBuffer;
+
+	D3D12_HEAP_PROPERTIES prop = {};
+	prop.Type = D3D12_HEAP_TYPE_CUSTOM;
+	prop.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	prop.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	prop.CreationNodeMask = 1;
+	prop.VisibleNodeMask = 1;
+
+	D3D12_RESOURCE_DESC desc = {};
+	desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	desc.Width = _width;//画像の横幅
+	desc.Height = _height;//画像の縦幅
+	desc.DepthOrArraySize = 1;
+	desc.MipLevels = 1;
+	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	desc.SampleDesc.Count = 1;
+	desc.SampleDesc.Quality = 1;
+	desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	result = dev->CreateCommittedResource(&prop,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&desc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&retBuffer));
+
+	return retBuffer;
 }
 
 void MyDirectX12::CreateVertexBuffer()
@@ -1607,11 +1647,11 @@ void MyDirectX12::CreateRootParameter()
 	materialRange[1].BaseShaderRegister = 1;//レジスタ番号
 	materialRange[1].NumDescriptors = pmdmaterials.size();
 	materialRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-	////t[2]
-	//toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
-	//toonRange[0].BaseShaderRegister = 2;//レジスタ番号
-	//toonRange[0].NumDescriptors = 10;
-	//toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//t[2]
+	toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	toonRange[0].BaseShaderRegister = 2;//レジスタ番号
+	toonRange[0].NumDescriptors = 4;
+	toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1629,13 +1669,11 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[2].Descriptor.RegisterSpace = 0;
 	rootParam[2].Descriptor.ShaderRegister = 2;//レジスタ番号
 	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-	////toon
-	//rootParam[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	//rootParam[3].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
-	//rootParam[3].DescriptorTable.pDescriptorRanges = toonRange;
-	//rootParam[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
-
-
+	//toon
+	rootParam[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[3].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
+	rootParam[3].DescriptorTable.pDescriptorRanges = toonRange;
+	rootParam[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignature()

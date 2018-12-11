@@ -309,6 +309,7 @@ private:
 	 //ä÷êî
 	 void CreateDescriptorHeapSRVforToon();
 	 void CreateToonTextureBuffer();
+	 ID3D12Resource * InitBuffer(UINT64 _width, UINT64 _height);
 	 //ïœêî
 	 std::array<char[100], 10> toonTexNames;
 	 ID3D12DescriptorHeap* toonDescriptorHeap;
