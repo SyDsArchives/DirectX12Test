@@ -48,6 +48,9 @@
     <ClCompile Include="VMD.cpp">
       <Filter>VMD</Filter>
     </ClCompile>
+    <ClCompile Include="PlaneMesh.cpp">
+      <Filter>ソース ファイル</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="VMD.h">
       <Filter>VMD</Filter>
+    </ClInclude>
+    <ClInclude Include="PlaneMesh.h">
+      <Filter>ソース ファイル</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
