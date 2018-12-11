@@ -94,5 +94,8 @@
     <FxCompile Include="PeraShader.hlsl">
       <Filter>Sheder</Filter>
     </FxCompile>
+    <FxCompile Include="PlaneShader.hlsl">
+      <Filter>Sheder</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

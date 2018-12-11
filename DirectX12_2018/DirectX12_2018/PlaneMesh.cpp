@@ -64,3 +64,21 @@ void PlaneMesh::PlaneDescriptorHeap()
 {
 
 }
+
+void PlaneMesh::CreateRootParam()
+{
+
+}
+
+void PlaneMesh::CreateSampler()
+{
+}
+
+void PlaneMesh::CreateRootSignature()
+{
+}
+
+void PlaneMesh::CreatePiplineState()
+{
+}
+

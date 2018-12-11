@@ -48,6 +48,17 @@ private:
 
 	ID3D12Resource* vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW vbView;
+
+	void CreateRootParam();
+	void CreateSampler();
+	void CreateRootSignature();
+	void CreatePiplineState();
+
+	D3D12_STATIC_SAMPLER_DESC samplerDesc[1] = {};
+	D3D12_ROOT_PARAMETER rootParam[1] = {};
+	D3D12_DESCRIPTOR_RANGE descriptorRange[1] = {};
+	ID3D12RootSignature* rootSignature;
+	ID3D12PipelineState* piplineState;
 public:
 	PlaneMesh(ID3D12Device* _dev, const DirectX::XMFLOAT3 _pos,float _width, float _depth);
 	~PlaneMesh();
