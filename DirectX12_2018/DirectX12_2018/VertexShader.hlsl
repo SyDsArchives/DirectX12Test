@@ -2,6 +2,7 @@ SamplerState smp:register(s0);
 Texture2D<float4> tex:register(t0);
 Texture2D<float4> tex2:register(t1);
 Texture2D<float4> tex3:register(t2);
+Texture2D<float4> clut:register(t2);
 
 cbuffer mat:register(b0)
 {
@@ -75,7 +76,7 @@ float4 ps(Output output):SV_Target
 	float brightness = dot(output.normal.xyz, light) + ambientNum;
 
 	//トゥーン
-	//float4 toon = toontex.Sample(smp, float2(0, 1.0 - brightness));
+	float4 toon = clut.Sample(smp, float2(0, 1.0 - brightness));
 
 	float3 color;
 	float alpha;
@@ -84,6 +85,19 @@ float4 ps(Output output):SV_Target
 	alpha = diffuse.a;
 
 	return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
+
+	////明るさ
+	//float brightness = dot(output.normal.xyz, light);
+
+	////トゥーン
+	//float4 toon = clut.Sample(smp, float2(0, 1.0 - brightness));
+
+	//float4 matcol = float4(saturate(toon.rgb * diffuse.rgb + ambientNum), diffuse.a);
+
+	//float3 color = matcol.rgb * tex2.Sample(smp, output.uv).rgb;
+	//float alpha = matcol.a;
+
+	//return float4(color, alpha);
 }
 
 PrimOutput PrimitiveVS(float4 pos : POSITION, float3 normal : NORMAL)

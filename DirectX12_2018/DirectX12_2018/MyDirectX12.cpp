@@ -71,7 +71,7 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateDescriptorHeapRTVforSecondPass();
 	MyDirectX12::CreateDescriptorHeapSRVforSecondPass();
 	MyDirectX12::CreateDescriptorHeapforPeraTexture();
-	//MyDirectX12::CreateDescriptorHeapSRVforToon();
+	MyDirectX12::CreateDescriptorHeapSRVforToon();
 
 	MyDirectX12::CreateCommandQueue();
 	MyDirectX12::CreateCommandAllocator();
@@ -101,6 +101,7 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::CreateBoneBuffer();
+	MyDirectX12::CreateToonTextureBuffer();
 
 	MyDirectX12::CreateVertexBufferforPeraPolygon();
 	MyDirectX12::CreatePeraPolygonTexture();
@@ -109,7 +110,7 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateRootSignatureforPeraPolygon();
 	MyDirectX12::CreatePiplineStateforPeraPolygon();
 	
-	//MyDirectX12::CreateToonTextureBuffer();
+	
 
 	MyDirectX12::CreatePiplineStateforPlane();
 
@@ -300,6 +301,9 @@ void MyDirectX12::testUpdate()
 	/*cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_FP);
 	cmdList->SetGraphicsRootDescriptorTable(2, descriptorHeapSRV_FP->GetGPUDescriptorHandleForHeapStart());*/
 
+	cmdList->SetDescriptorHeaps(1, &toonDescriptorHeap);
+	cmdList->SetGraphicsRootDescriptorTable(3, toonDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
 
@@ -328,50 +332,50 @@ void MyDirectX12::testUpdate()
 
 	cmdList->Close();
 	ExecuteCommand(1);
-	//swapChain->Present(1, 0);
+	swapChain->Present(1, 0);
 	WaitWithFence();
 	
 	///////////////////////////////
 	//	3パス目 : ペラポリ
 	///////////////////////////////
 	
-	//アロケータリセット
-	result = cmdAllocator->Reset();
-	//リストリセット
-	result = cmdList->Reset(cmdAllocator, piplineState_pera);
+	////アロケータリセット
+	//result = cmdAllocator->Reset();
+	////リストリセット
+	//result = cmdList->Reset(cmdAllocator, piplineState_pera);
 
-	cmdList->RSSetViewports(1, &viewport);
+	//cmdList->RSSetViewports(1, &viewport);
 
-	cmdList->RSSetScissorRects(1, &scissorRect);
+	//cmdList->RSSetScissorRects(1, &scissorRect);
 
-	handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	//handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+	//cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-	auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	handleRTV.ptr += (bbindex * handleSize);
-	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
-		
-	cmdList->SetGraphicsRootSignature(rootSignature_pera);
+	//handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	//auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	//handleRTV.ptr += (bbindex * handleSize);
+	//cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	//cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+	//	
+	//cmdList->SetGraphicsRootSignature(rootSignature_pera);
 
-	/*cmdList->SetDescriptorHeaps(1, &peraTextureDescriptorHeap);
-	cmdList->SetGraphicsRootDescriptorTable(0, peraTextureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());*/
-	cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
-	cmdList->SetGraphicsRootDescriptorTable(0, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
+	///*cmdList->SetDescriptorHeaps(1, &peraTextureDescriptorHeap);
+	//cmdList->SetGraphicsRootDescriptorTable(0, peraTextureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());*/
+	//cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
+	//cmdList->SetGraphicsRootDescriptorTable(0, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
 
-	cmdList->SetPipelineState(piplineState_pera);
+	//cmdList->SetPipelineState(piplineState_pera);
 
-	cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
+	//cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
 
-	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
-	
+	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	//
 
-	cmdList->Close();
-	ExecuteCommand(1);
-	swapChain->Present(1, 0);
-	WaitWithFence();
+	//cmdList->Close();
+	//ExecuteCommand(1);
+	//swapChain->Present(1, 0);
+	//WaitWithFence();
 
 
 	///////////////////////////////
@@ -1071,11 +1075,11 @@ void MyDirectX12::CreateToonTextureBuffer()
 			box.back = 1;
 			result = toonBuffer->WriteToSubresource(0, nullptr, data.data(), 4 * sizeof(Color), data.size() * sizeof(Color));
 
-			cmdList->Close();
+			/*cmdList->Close();
 			ExecuteCommand(1);
 			WaitWithFence();
 			cmdAllocator->Reset();
-			cmdList->Reset(cmdAllocator, nullptr);
+			cmdList->Reset(cmdAllocator, nullptr);*/
 		}
 		else 
 		{
@@ -1096,11 +1100,11 @@ void MyDirectX12::CreateToonTextureBuffer()
 			box.back = 1;
 			result = toonBuffer->WriteToSubresource(0, &box, imgData.data.data(), 4 * box.right, imgData.imageSize);
 
-			cmdList->Close();
+			/*cmdList->Close();
 			ExecuteCommand(1);
 			WaitWithFence();
 			cmdAllocator->Reset();
-			cmdList->Reset(cmdAllocator, nullptr);
+			cmdList->Reset(cmdAllocator, nullptr);*/
 		}
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
@@ -1644,6 +1648,11 @@ void MyDirectX12::CreateRootParameter()
 	spRange[0].BaseShaderRegister = 2;//レジスタ番号
 	spRange[0].NumDescriptors = 1;
 	spRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//t[3]
+	toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	toonRange[0].BaseShaderRegister = 3;//レジスタ番号
+	toonRange[0].NumDescriptors = 1;
+	toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1666,6 +1675,11 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[3].DescriptorTable.NumDescriptorRanges = _countof(spRange);
 	rootParam[3].DescriptorTable.pDescriptorRanges = spRange;
 	rootParam[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	//toon
+	rootParam[4].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[4].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
+	rootParam[4].DescriptorTable.pDescriptorRanges = toonRange;
+	rootParam[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignature()

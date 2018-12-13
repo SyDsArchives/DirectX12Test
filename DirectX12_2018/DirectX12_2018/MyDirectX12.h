@@ -268,7 +268,7 @@ private:
 	 //ä÷êî
 	 void CreateRootParameter();
 	 //ïœêî
-	 D3D12_ROOT_PARAMETER rootParam[4] = {};
+	 D3D12_ROOT_PARAMETER rootParam[5] = {};
 	 D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE boneRange[1] = {};
