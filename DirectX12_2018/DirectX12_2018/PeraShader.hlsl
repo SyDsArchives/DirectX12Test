@@ -23,9 +23,7 @@ Output PeraVertex(float4 pos:POSITION, float2 uv : TEXCOORD)
 float4 PeraPixel(Output input) :SV_Target
 {
 	//return tex.Sample(smp,input.uv);
-	//return float4(tex.Sample(smp, input.uv).rgb - fmod(tex.Sample(smp, input.uv).rgb, 0.25f), 1);
-	float brightness =  1.f;
-	float4 ret = tex.Sample(smp,input.uv);
-	return float4(ret.r, ret.g, ret.b, ret.a);
+	return float4(tex.Sample(smp, input.uv).rgb - fmod(tex.Sample(smp, input.uv).rgb, 0.25f), 1);
+	//return float4(test.r - 0.1f, test.g, test.b - 0.1f, test.a);
 	//return float4(1,0,0,1);
 }

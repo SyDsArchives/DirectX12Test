@@ -18,9 +18,18 @@ PlaneMesh::~PlaneMesh()
 {
 }
 
-void PlaneMesh::Update()
+void PlaneMesh::Draw(ID3D12GraphicsCommandList3* _cmdlist)
 {
+	//_cmdlist->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//_cmdlist->IASetVertexBuffers(0, 1, &vbView);
+	//_cmdlist->DrawInstanced(4, 1, 0, 0);
 }
+
+D3D12_VERTEX_BUFFER_VIEW PlaneMesh::GetVertexBufferView()
+{
+	return vbView;
+}
+
 
 void PlaneMesh::PlaneVertexBuffer()
 {
@@ -49,8 +58,6 @@ void PlaneMesh::PlaneVertexBuffer()
 	PrimVertex* vert = nullptr;
 	//map‚Å’¸“_î•ñ‚ðGPU‚É‘—‚é
 	result = vertexBuffer->Map(0, nullptr, (void**)(&vert));
-
-
 	std::copy(vertices.begin(), vertices.end(), vert);
 	vertexBuffer->Unmap(0, nullptr);
 
@@ -60,25 +67,5 @@ void PlaneMesh::PlaneVertexBuffer()
 	vbView.StrideInBytes = stride;
 }
 
-void PlaneMesh::PlaneDescriptorHeap()
-{
 
-}
-
-void PlaneMesh::CreateRootParam()
-{
-
-}
-
-void PlaneMesh::CreateSampler()
-{
-}
-
-void PlaneMesh::CreateRootSignature()
-{
-}
-
-void PlaneMesh::CreatePiplineState()
-{
-}
 

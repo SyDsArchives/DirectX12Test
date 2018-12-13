@@ -12,6 +12,7 @@
 #include <functional>
 #include <map>
 #include <array>
+#include <memory>
 
 #include "PMX.h"
 
@@ -146,6 +147,7 @@ struct Cbuffer {
 	DirectX::XMMATRIX viewproj;
 };
 
+class PlaneMesh;
 struct KeyFrame;
 typedef std::map<std::string, std::vector<KeyFrame>> AnimationMap_m;
 struct DirectX::XMMATRIX;
@@ -154,7 +156,7 @@ class MyDirectX12
 {
 private:
 	PMX* pmx;
-
+	int testflag;
 	unsigned int bbindex;
 	unsigned int descriptorSizeRTV;
 
@@ -239,6 +241,7 @@ private:
 	 void SetViewPort();
 	 //変数
 	 D3D12_VIEWPORT viewport;
+	 D3D12_VIEWPORT viewport2;
 
 	//シザーレクト
 	 //関数
@@ -269,7 +272,9 @@ private:
 	 D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE boneRange[1] = {};
+	 D3D12_DESCRIPTOR_RANGE spRange[1] = {};
 	 D3D12_DESCRIPTOR_RANGE toonRange[1] = {};
+	 D3D12_DESCRIPTOR_RANGE firstpasstextureRange[1] = {};
 
 	//テクスチャバッファ
 	 //関数
@@ -333,10 +338,12 @@ private:
 	//ボーン関連
 	 //関数
 	 void CreateBoneBuffer();
+	 void CreateDescriptorHeapforBone();
 	 //変数
 	 PMDBones pmdbones;
 	 std::vector<DirectX::XMMATRIX> boneMatrices;
 	 std::map<std::string, BoneNode> boneMap;
+	 ID3D12DescriptorHeap* boneDescriptorHeap;
 	 ID3D12Resource* boneBuffer;//ボーン用バッファ
 	 DirectX::XMMATRIX* bBuff;//ボーン情報更新用(buffer->map用)
 
@@ -383,8 +390,14 @@ private:
 	//関数
 	 void CreateDescriptorHeapRTVforSecondPass();
 	 void CreateRenderTargetforSecondPass();
+	 void CreateDescriptorHeapSRVforSecondPass();
+	 void CreateShaderResourceforSecondPass();
+	 void CreateDescriptorHeapforFirstpassTexture();
+	 void CreateFirstpassTexture();
 	 //変数
+	 ID3D12DescriptorHeap* firstpassTextureDescHeap;
 	 ID3D12DescriptorHeap* descriptorHeapRTV_SP;
+	 ID3D12DescriptorHeap* descriptorHeapSRV_SP;
 
 //サードパス
 	  //頂点バッファ
@@ -426,6 +439,15 @@ private:
 	  //変数
 	  ID3D12PipelineState* piplineState_pera;
 
+
+	  /////////////平面オブジェ
+	  std::shared_ptr<PlaneMesh> plane;
+
+	  //パイプラインステート
+	  //関数
+	  void CreatePiplineStateforPlane();
+	  //変数
+	  ID3D12PipelineState* piplineState_Plane;
 
 public:
 	MyDirectX12(HWND _hwnd);

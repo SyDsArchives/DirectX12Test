@@ -5,6 +5,7 @@
 #include "LoadImageFile.h"
 #include "DirectXTex.h"
 #include "VMD.h"
+#include "PlaneMesh.h"
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
@@ -16,19 +17,19 @@ const char* vmdfile = "resource/vmd/ヤゴコロダンス.vmd";
 
 const int screenBufferNum = 2;//画面バッファの数
 
-Vertex vertices[] = {
-	DirectX::XMFLOAT3(-1,-1,0)	,DirectX::XMFLOAT2(0,1),
-	DirectX::XMFLOAT3(-1,1,0)	,DirectX::XMFLOAT2(0,0),
-	DirectX::XMFLOAT3(1,-1,0)	,DirectX::XMFLOAT2(1,1),
-	DirectX::XMFLOAT3(1,1,0)	,DirectX::XMFLOAT2(1,0),
-};
-
 //Vertex vertices[] = {
-//	DirectX::XMFLOAT3(-0.5f,-0.5f,0),DirectX::XMFLOAT2(0,1),
-//	DirectX::XMFLOAT3(-0.5f,0.5f,0) ,DirectX::XMFLOAT2(0,0),
-//	DirectX::XMFLOAT3(0.5f,-0.5f,0) ,DirectX::XMFLOAT2(1,1),
-//	DirectX::XMFLOAT3(0.5f,0.5f,0)  ,DirectX::XMFLOAT2(1,0),
+//	DirectX::XMFLOAT3(-1,-1,0)	,DirectX::XMFLOAT2(0,1),
+//	DirectX::XMFLOAT3(-1,1,0)	,DirectX::XMFLOAT2(0,0),
+//	DirectX::XMFLOAT3(1,-1,0)	,DirectX::XMFLOAT2(1,1),
+//	DirectX::XMFLOAT3(1,1,0)	,DirectX::XMFLOAT2(1,0),
 //};
+
+Vertex vertices[] = {
+	DirectX::XMFLOAT3(-0.5f,-0.5f,0),DirectX::XMFLOAT2(0,1),
+	DirectX::XMFLOAT3(-0.5f,0.5f,0) ,DirectX::XMFLOAT2(0,0),
+	DirectX::XMFLOAT3(0.5f,-0.5f,0) ,DirectX::XMFLOAT2(1,1),
+	DirectX::XMFLOAT3(0.5f,0.5f,0)  ,DirectX::XMFLOAT2(1,0),
+};
 
 MyDirectX12::MyDirectX12(HWND _hwnd) : hwnd(_hwnd),
 bbindex(0), descriptorSizeRTV(0),
@@ -49,6 +50,7 @@ descriptorHeapRTV_FP(nullptr),
 descriptorHeapSRV_FP(nullptr)
 //firstpassBuffer(nullptr)
 {
+	testflag = 0;
 	//pmx->Load();
 	vmd->Load(vmdfile);
 	animationData = vmd->GetAnimationMapData();
@@ -58,14 +60,18 @@ descriptorHeapSRV_FP(nullptr)
 
 	MyDirectX12::CreateDevice();
 
+	plane = std::make_shared<PlaneMesh>(dev,DirectX::XMFLOAT3(0,0,0),50,50);
+
 	MyDirectX12::CreateDescriptorHeapRTV();
 	MyDirectX12::CreateDescriptorHeapRegister();
 	MyDirectX12::CreateDescriptorHeapforMaterial();
+	MyDirectX12::CreateDescriptorHeapforBone();
 	MyDirectX12::CreateDescriptorHeapRTVforFirstPass();
 	MyDirectX12::CreateDescriptorHeapSRVforFirstPass();
 	MyDirectX12::CreateDescriptorHeapRTVforSecondPass();
+	MyDirectX12::CreateDescriptorHeapSRVforSecondPass();
 	MyDirectX12::CreateDescriptorHeapforPeraTexture();
-	MyDirectX12::CreateDescriptorHeapSRVforToon();
+	//MyDirectX12::CreateDescriptorHeapSRVforToon();
 
 	MyDirectX12::CreateCommandQueue();
 	MyDirectX12::CreateCommandAllocator();
@@ -77,16 +83,9 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateShaderResourceforFirstPass();
 
 	MyDirectX12::CreateRenderTargetforSecondPass();
-
-	MyDirectX12::CreateVertexBufferforPeraPolygon();
-	MyDirectX12::CreatePeraPolygonTexture();
-	MyDirectX12::CreateSamplerStateforPeraPolygon();
-	MyDirectX12::CreateRootParameterforPeraPolygon();
-	MyDirectX12::CreateRootSignatureforPeraPolygon();
-	MyDirectX12::CreatePiplineStateforPeraPolygon();
-
+	MyDirectX12::CreateShaderResourceforSecondPass();
 	MyDirectX12::CreateFence();
-	
+
 	MyDirectX12::CreateVertexBuffer();
 	MyDirectX12::CreateIndexBuffer();
 	MyDirectX12::CreateDepthBuffer();
@@ -102,7 +101,17 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateConstantBuffer();
 	MyDirectX12::CreateMaterialBuffer();
 	MyDirectX12::CreateBoneBuffer();
-	MyDirectX12::CreateToonTextureBuffer();
+
+	MyDirectX12::CreateVertexBufferforPeraPolygon();
+	MyDirectX12::CreatePeraPolygonTexture();
+	MyDirectX12::CreateSamplerStateforPeraPolygon();
+	MyDirectX12::CreateRootParameterforPeraPolygon();
+	MyDirectX12::CreateRootSignatureforPeraPolygon();
+	MyDirectX12::CreatePiplineStateforPeraPolygon();
+	
+	//MyDirectX12::CreateToonTextureBuffer();
+
+	MyDirectX12::CreatePiplineStateforPlane();
 
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
@@ -125,135 +134,46 @@ void MyDirectX12::Update(float angle)
 	{
 		lastTime = GetTickCount();
 	}
-	
-
 	//ボーン初期化
 	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
-
-
 	//PMDにVMDを適応させる
 	MotionUpdate(static_cast<float>(GetTickCount() - lastTime) / 33.33333f);
-	
-
 	//ボーン更新
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
 
-
 	//背景色
 	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
-
-	//DSV
-	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-
-	////マルチパス用
-	////アロケータリセット
-	//result = cmdAllocator->Reset();
-	////リストリセット
-	//result = cmdList->Reset(cmdAllocator, piplineStateFP);
-
-	////ビューポートのセット
-	//cmdList->RSSetViewports(1, &viewport);
-
-	////シザーレクトのセット
-	//cmdList->RSSetScissorRects(1, &scissorRect);
-
-	////デプスバッファのクリア
-	//cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-	////1パス目
-	//auto multipassHandleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
-	////レンダーターゲットのセット
-	////クリア
-	//cmdList->ClearRenderTargetView(multipassHandleRTV, clearColor, 0, nullptr);
-	////レンダーターゲット設定
-	//cmdList->OMSetRenderTargets(1, &multipassHandleRTV, false, &handleDSV);
-
-	//cmdList->SetGraphicsRootSignature(rootSignatureFP);
-	//cmdList->IASetVertexBuffers(0, 1, &vbViewFP);
-
-	//cmdList->SetDescriptorHeaps(1, &firstPassDescHeap);
-
-	//cmdList->SetGraphicsRootDescriptorTable(0, firstPassDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-
-	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
-
-	//cmdList->Close();//リストのクローズ
-
-	//ExecuteCommand(1);
-
-	//swapChain->Present(1, 0);
-
-	////コマンドの完了を待機
-	//WaitWithFence();
-
-
-	////////////////////////////////////////////////////////////////////////////////////////////
-	//RTVHandleInclement
-	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-	handleRTV.ptr += (bbindex * descriptorSizeRTV);
-
 
 	//アロケータリセット
 	result = cmdAllocator->Reset();
 	//リストリセット
 	result = cmdList->Reset(cmdAllocator, piplineState);
 
-
-	////アロケータリセット
-	//result = cmdAllocator->Reset();
-	////リストリセット
-	//result = cmdList->Reset(cmdAllocator, piplineState_pera);
-
-
 	//ビューポートのセット
 	cmdList->RSSetViewports(1, &viewport);
-
-
 	//シザーレクトのセット
 	cmdList->RSSetScissorRects(1, &scissorRect);
-
-
 	//デプスバッファのクリア
+	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
 	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-
 	//モデル用レンダーターゲットのセット
-	//クリア
+	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	handleRTV.ptr += (bbindex * descriptorSizeRTV);
 	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-	//レンダーターゲット設定
 	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
-
 
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
-
-
 	//頂点バッファのセット
 	cmdList->IASetVertexBuffers(0, 1, &vbView);
-
-
 	//インデックスバッファのセット
 	cmdList->IASetIndexBuffer(&ibView);
-
-
 	//シェーダーレジスタ用デスクリプターヒープのセット
 	cmdList->SetDescriptorHeaps(1,&rgstDescHeap);
-
-
 	//シェーダーレジスタ用デスクリプターテーブルの指定
 	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-
-	cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT));
-
 	//パイプラインのセット
 	cmdList->SetPipelineState(piplineState);
-
 
 
 	//形情報のセット
@@ -270,17 +190,12 @@ void MyDirectX12::Update(float angle)
 	//PMDモデルインデックス入り表示
 	//cmdList->DrawIndexedInstanced(pmdindices.size(), 1, 0, 0, 0);
 
-
 	//ボーン用定数バッファのセット
 	cmdList->SetGraphicsRootConstantBufferView(2, boneBuffer->GetGPUVirtualAddress());
-
-
 	//マテリアル用デスクリプターヒープのセットとモデル描画
 	cmdList->SetDescriptorHeaps(1, &materialDescHeap);
-
 	//ラインリスト
 	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
 	auto materialHandle = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
 	auto incrementSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -296,18 +211,9 @@ void MyDirectX12::Update(float angle)
 		offset += idxcount;
 	}
 
-	cmdList->ResourceBarrier(1,
-		&CD3DX12_RESOURCE_BARRIER::Transition(renderTarget[bbindex],
-			D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_PRESENT));
-
-	cmdList->Close();//リストのクローズ
-
+	cmdList->Close();
 	ExecuteCommand(1);
-
 	swapChain->Present(1, 0);
-
-	//コマンドの完了を待機
 	WaitWithFence();
 }
 
@@ -318,151 +224,198 @@ void MyDirectX12::testUpdate()
 	///////////////////////////////
 	//	1パス目
 	///////////////////////////////
-	{
-		result = cmdAllocator->Reset();
-		result = cmdList->Reset(cmdAllocator, piplineState);
+	result = cmdAllocator->Reset();
+	result = cmdList->Reset(cmdAllocator, piplineState);
 
-		cmdList->RSSetViewports(1, &viewport);
-		cmdList->RSSetScissorRects(1, &scissorRect);
+	cmdList->RSSetViewports(1, &viewport);
+	cmdList->RSSetScissorRects(1, &scissorRect);
 
-		auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-		cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-		float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
+	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
 
-		auto handleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
-		cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-		cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
+	auto handleRTV = descriptorHeapRTV_FP->GetCPUDescriptorHandleForHeapStart();
+	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
 		
 
-		cmdList->SetGraphicsRootSignature(rootSignature);
+	cmdList->SetGraphicsRootSignature(rootSignature);
 
-		cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_FP);
-		cmdList->SetGraphicsRootDescriptorTable(1, descriptorHeapSRV_FP->GetGPUDescriptorHandleForHeapStart());
+	/*cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_FP);
+	cmdList->SetGraphicsRootDescriptorTable(1, descriptorHeapSRV_FP->GetGPUDescriptorHandleForHeapStart());*/
 
-		cmdList->SetPipelineState(piplineState);
+	cmdList->SetPipelineState(piplineState);
 
-		cmdList->Close();
-		ExecuteCommand(1);
-		//swapChain->Present(1, 0);
-		WaitWithFence();
-	}
+	cmdList->Close();
+	ExecuteCommand(1);
+	WaitWithFence();
 	///////////////////////////////
 	//	2パス目
 	///////////////////////////////
+
+	//カメラ用定数バッファの更新
+	memcpy(cbuff, &wvp, sizeof(wvp));
+
+	//30f取得
+	if (GetTickCount() - lastTime > vmd->GetDuration() * 33.33333f)
 	{
-		memcpy(cbuff, &wvp, sizeof(wvp));
-
-		if (GetTickCount() - lastTime > vmd->GetDuration() * 33.33333f)
-		{
-			lastTime = GetTickCount();
-		}
-
-		std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
-
-		MotionUpdate(static_cast<float>(GetTickCount() - lastTime) / 33.33333f);
-
-		std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
-
-		result = cmdAllocator->Reset();
-		result = cmdList->Reset(cmdAllocator, piplineState);
-
-		cmdList->RSSetViewports(1, &viewport);
-		cmdList->RSSetScissorRects(1, &scissorRect);
-
-		auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-		cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-		float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
-
-		auto handleRTV = descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart();
-		cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-		cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
-
-		cmdList->SetGraphicsRootSignature(rootSignature);
-		
-		cmdList->IASetVertexBuffers(0, 1, &vbView);
-
-		cmdList->IASetIndexBuffer(&ibView);
-
-		cmdList->SetDescriptorHeaps(1, &rgstDescHeap);
-
-		cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-		cmdList->SetPipelineState(piplineState);
-
-		cmdList->SetGraphicsRootConstantBufferView(2, boneBuffer->GetGPUVirtualAddress());
-
-		cmdList->SetDescriptorHeaps(1, &materialDescHeap);
-
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		auto materialHandle = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
-		auto incrementSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-		int offset = 0;
-		for (auto m : pmdmaterials)
-		{
-			cmdList->SetGraphicsRootDescriptorTable(1, materialHandle);
-
-			materialHandle.ptr += incrementSize * 2;
-
-			auto idxcount = m.faceVertCount;
-			cmdList->DrawIndexedInstanced(idxcount, 1, offset, 0, 0);
-			offset += idxcount;
-		}
-
-		cmdList->Close();
-		ExecuteCommand(1);
-		swapChain->Present(1, 0);
-		WaitWithFence();
-
+		lastTime = GetTickCount();
 	}
+	//ボーン初期化
+	std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
+	//PMDにVMDを適応させる
+	MotionUpdate(static_cast<float>(GetTickCount() - lastTime) / 33.33333f);
+	//ボーン更新
+	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
+
+	//アロケータリセット
+	result = cmdAllocator->Reset();
+	//リストリセット
+	result = cmdList->Reset(cmdAllocator, piplineState);
+
+	//ビューポートのセット
+	cmdList->RSSetViewports(1, &viewport);
+	//シザーレクトのセット
+	cmdList->RSSetScissorRects(1, &scissorRect);
+	//デプスバッファのクリア
+	handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	handleRTV = descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart();
+	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+
+	//ルートシグネチャのセット
+	cmdList->SetGraphicsRootSignature(rootSignature);
+	//頂点バッファのセット
+	cmdList->IASetVertexBuffers(0, 1, &vbView);
+	//インデックスバッファのセット
+	cmdList->IASetIndexBuffer(&ibView);
+	//シェーダーレジスタ用デスクリプターヒープのセット
+	cmdList->SetDescriptorHeaps(1, &rgstDescHeap);
+	//シェーダーレジスタ用デスクリプターテーブルの指定
+	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	/*cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_FP);
+	cmdList->SetGraphicsRootDescriptorTable(2, descriptorHeapSRV_FP->GetGPUDescriptorHandleForHeapStart());*/
+
+	//パイプラインのセット
+	cmdList->SetPipelineState(piplineState);
+
+	//ボーン用定数バッファのセット
+	cmdList->SetDescriptorHeaps(1, &boneDescriptorHeap);
+	cmdList->SetGraphicsRootDescriptorTable(2, boneDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//マテリアル用デスクリプターヒープのセットとモデル描画
+	cmdList->SetDescriptorHeaps(1, &materialDescHeap);
+	//ラインリスト
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	auto materialHandle = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
+	auto incrementSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	int offset = 0;
+	for (auto m : pmdmaterials)
+	{
+		cmdList->SetGraphicsRootDescriptorTable(1, materialHandle);
+
+		materialHandle.ptr += incrementSize * 2;
+
+		auto idxcount = m.faceVertCount;
+		cmdList->DrawIndexedInstanced(idxcount, 1, offset, 0, 0);
+		offset += idxcount;
+	}
+
+	cmdList->Close();
+	ExecuteCommand(1);
+	//swapChain->Present(1, 0);
+	WaitWithFence();
+	
 	///////////////////////////////
 	//	3パス目 : ペラポリ
 	///////////////////////////////
-	{
-		//アロケータリセット
-		result = cmdAllocator->Reset();
-		//リストリセット
-		result = cmdList->Reset(cmdAllocator, piplineState_pera);
-
-		cmdList->RSSetViewports(1, &viewport);
-
-		cmdList->RSSetScissorRects(1, &scissorRect);
-
-		auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-		cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 	
-		float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
+	//アロケータリセット
+	result = cmdAllocator->Reset();
+	//リストリセット
+	result = cmdList->Reset(cmdAllocator, piplineState_pera);
 
-		auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-		auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		handleRTV.ptr += (bbindex * handleSize);
-		cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-		cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+	cmdList->RSSetViewports(1, &viewport);
+
+	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	handleRTV.ptr += (bbindex * handleSize);
+	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
 		
-		
-		cmdList->SetGraphicsRootSignature(rootSignature_pera);
+	cmdList->SetGraphicsRootSignature(rootSignature_pera);
 
-		cmdList->SetDescriptorHeaps(1, &peraTextureDescriptorHeap);
-		cmdList->SetGraphicsRootDescriptorTable(0, peraTextureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+	/*cmdList->SetDescriptorHeaps(1, &peraTextureDescriptorHeap);
+	cmdList->SetGraphicsRootDescriptorTable(0, peraTextureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());*/
+	cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
+	cmdList->SetGraphicsRootDescriptorTable(0, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
 
-		cmdList->SetPipelineState(piplineState_pera);
+	cmdList->SetPipelineState(piplineState_pera);
 
-		cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
+	cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
 
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	
 
-		cmdList->Close();
+	cmdList->Close();
+	ExecuteCommand(1);
+	swapChain->Present(1, 0);
+	WaitWithFence();
 
-		ExecuteCommand(1);
 
-		swapChain->Present(1, 0);
+	///////////////////////////////
+	//	平面オブジェクト
+	///////////////////////////////
+	//{
+	//	//アロケータリセット
+	//	result = cmdAllocator->Reset();
+	//	//リストリセット
+	//	result = cmdList->Reset(cmdAllocator, piplineState_Plane);
 
-		WaitWithFence();
-	}
+	//	cmdList->RSSetViewports(1, &viewport);
+
+	//	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	//	auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+	//	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+	//	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
+
+	//	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	//	auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	//	handleRTV.ptr += (bbindex * handleSize);
+	//	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	//	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+
+	//	cmdList->SetGraphicsRootSignature(rootSignature);
+
+	//	cmdList->SetPipelineState(piplineState_Plane);
+
+	//	cmdList->IASetVertexBuffers(0, 1, &plane->GetVertexBufferView());
+
+	//	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	//	
+	//	cmdList->DrawInstanced(4, 1, 0, 0);
+
+	//	cmdList->Close();
+
+	//	ExecuteCommand(1);
+
+	//	swapChain->Present(1, 0);
+
+	//	WaitWithFence();
+	//}
 }
 
 void MyDirectX12::ExecuteCommand(unsigned int cmdlistnum)
@@ -726,6 +679,13 @@ void MyDirectX12::SetViewPort()
 	viewport.Height = WindowHeight;
 	viewport.MinDepth = 0.f;//近い
 	viewport.MaxDepth = 1.f;//遠い
+
+	viewport2.TopLeftX = 0;
+	viewport2.TopLeftY = WindowHeight;
+	viewport2.Width = WindowWidth;
+	viewport2.Height = WindowHeight * 2;
+	viewport2.MinDepth = 0.f;//近い
+	viewport2.MaxDepth = 1.f;//遠い
 }
 
 void MyDirectX12::SetScissorRect()
@@ -1559,12 +1519,39 @@ void MyDirectX12::CreateBoneBuffer()
 		const char* er_message = "S_OK以外が返されました";
 		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
 	}
-	
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC desc = {};
+	desc.BufferLocation = boneBuffer->GetGPUVirtualAddress();
+	desc.SizeInBytes = size;
+
+	auto handle = boneDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+	auto hsize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//handle.ptr += hsize;
+
+	dev->CreateConstantBufferView(&desc, handle);
 
 	//マップをする
 	result = boneBuffer->Map(0, nullptr, (void**)&bBuff);
 	//XMMATRIX分ずつデータを送る
 	std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
+}
+
+void MyDirectX12::CreateDescriptorHeapforBone()
+{
+	HRESULT result = S_OK;
+	//registerのCBV,SRV,UAV用のDescriptorHeapDescの生成
+	D3D12_DESCRIPTOR_HEAP_DESC registerHeapDesc = {};
+	registerHeapDesc.NumDescriptors = 1;
+	registerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	registerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	result = dev->CreateDescriptorHeap(&registerHeapDesc, IID_PPV_ARGS(&boneDescriptorHeap));
+	if (result != S_OK)
+	{
+		const char* er_title = " CreateDescriptorHeapRegister関数内エラー";
+		const char* er_message = "S_OK以外が返されました";
+		int message = MessageBox(hwnd, er_message, er_title, MB_OK | MB_ICONERROR);
+	}
 }
 
 void MyDirectX12::CreateDescriptorHeapRegister()
@@ -1628,36 +1615,41 @@ void MyDirectX12::CreateRootParameter()
 {
 	//レンジの設定
 	//t[0]
-	descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	descriptorRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	descriptorRange[0].BaseShaderRegister = 0;//レジスタ番号
 	descriptorRange[0].NumDescriptors = 1;
 	descriptorRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	//b[0]
-	descriptorRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
+	descriptorRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	descriptorRange[1].BaseShaderRegister = 0;//レジスタ番号
 	descriptorRange[1].NumDescriptors = 1;
 	descriptorRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	//b[1]
-	materialRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;//コンスタントバッファ
+	materialRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 	materialRange[0].BaseShaderRegister = 1;//レジスタ番号
 	materialRange[0].NumDescriptors = 1;
 	materialRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	//t[1]
-	materialRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	materialRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 	materialRange[1].BaseShaderRegister = 1;//レジスタ番号
-	materialRange[1].NumDescriptors = pmdmaterials.size();
+	materialRange[1].NumDescriptors = 1;
 	materialRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//b[2]
+	boneRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+	boneRange[0].BaseShaderRegister = 2;//レジスタ番号
+	boneRange[0].NumDescriptors = 1;
+	boneRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	//t[2]
-	toonRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
-	toonRange[0].BaseShaderRegister = 2;//レジスタ番号
-	toonRange[0].NumDescriptors = 4;
-	toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	spRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	spRange[0].BaseShaderRegister = 2;//レジスタ番号
+	spRange[0].NumDescriptors = 1;
+	spRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
 	//ルートパラメーターの設定
 	//register
 	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
 	rootParam[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange);
-	rootParam[0].DescriptorTable.pDescriptorRanges = descriptorRange;//対応するレンジへのポインタ
+	rootParam[0].DescriptorTable.pDescriptorRanges = descriptorRange;
 	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	//material
 	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
@@ -1665,14 +1657,14 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[1].DescriptorTable.pDescriptorRanges = materialRange;
 	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 	//bone
-	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
-	rootParam[2].Descriptor.RegisterSpace = 0;
-	rootParam[2].Descriptor.ShaderRegister = 2;//レジスタ番号
-	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-	//toon
+	rootParam[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[2].DescriptorTable.NumDescriptorRanges = _countof(boneRange);
+	rootParam[2].DescriptorTable.pDescriptorRanges = boneRange;
+	rootParam[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	//seccondpass
 	rootParam[3].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam[3].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
-	rootParam[3].DescriptorTable.pDescriptorRanges = toonRange;
+	rootParam[3].DescriptorTable.NumDescriptorRanges = _countof(spRange);
+	rootParam[3].DescriptorTable.pDescriptorRanges = spRange;
 	rootParam[3].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
@@ -1694,6 +1686,7 @@ void MyDirectX12::CreateRootSignature()
 	rsDesc.pParameters = rootParam;
 
 	result = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+
 	if (result != S_OK)
 	{
 		const char* er_title = " CreateRootSignature関数内エラー";
@@ -1907,7 +1900,6 @@ void MyDirectX12::CreateShaderResourceforFirstPass()
 	auto hsize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	dev->CreateShaderResourceView(firstpassBuffer, &srvDesc, handle);
-	handle.ptr += hsize;
 }
 
 void MyDirectX12::CreateMultiPassResource(ID3D12Resource* _resource, bool rtvflg)
@@ -1961,23 +1953,44 @@ void MyDirectX12::CreateDescriptorHeapRTVforSecondPass()
 
 void MyDirectX12::CreateRenderTargetforSecondPass()
 {
+	CreateMultiPassResource(secondpassBuffer, true);
 	HRESULT result;
 	//レンダーターゲット生成
 	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart());
 
-	result = swapChain->GetBuffer(0, IID_PPV_ARGS(&firstpassBuffer));
+	result = swapChain->GetBuffer(0, IID_PPV_ARGS(&secondpassBuffer));
 
-	dev->CreateRenderTargetView(firstpassBuffer, nullptr, handle);
+	dev->CreateRenderTargetView(secondpassBuffer, nullptr, handle);
+}
 
+void MyDirectX12::CreateDescriptorHeapSRVforSecondPass()
+{
+	HRESULT result;
+	//ヒープ
+	D3D12_DESCRIPTOR_HEAP_DESC hDesc = {};
+	hDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	hDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	hDesc.NodeMask = 0;
+	hDesc.NumDescriptors = 1;
 
-	//CreateMultiPassResource(secondpassBuffer, true);
-	//HRESULT result;
-	////レンダーターゲット生成
-	//CD3DX12_CPU_DESCRIPTOR_HANDLE handle(descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart());
+	//ヒープ生成
+	result = dev->CreateDescriptorHeap(&hDesc, IID_PPV_ARGS(&descriptorHeapSRV_SP));
+}
 
-	//result = swapChain->GetBuffer(0, IID_PPV_ARGS(&secondpassBuffer));
+void MyDirectX12::CreateShaderResourceforSecondPass()
+{
+	HRESULT result;
 
-	//dev->CreateRenderTargetView(secondpassBuffer, nullptr, handle);
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	auto handle = descriptorHeapSRV_SP->GetCPUDescriptorHandleForHeapStart();
+	auto hsize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	dev->CreateShaderResourceView(secondpassBuffer, &srvDesc, handle);
 }
 
 ///////////////////////////////////////////
@@ -2031,7 +2044,7 @@ void MyDirectX12::CreatePeraPolygonTexture()
 
 	auto handle = peraTextureDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
 	
-	dev->CreateShaderResourceView(firstpassBuffer, &desc, handle);
+	dev->CreateShaderResourceView(secondpassBuffer, &desc, handle);
 }
 
 void MyDirectX12::CreateSamplerStateforPeraPolygon()
@@ -2142,4 +2155,61 @@ void MyDirectX12::CreatePiplineStateforPeraPolygon()
 
 
 	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState_pera));
+}
+
+
+void MyDirectX12::CreatePiplineStateforPlane()
+{
+	HRESULT result = S_OK;
+
+	//シェーダー
+	ID3DBlob* vertexShaderPlane = nullptr;
+	ID3DBlob* pixelShaderPlane = nullptr;
+	//頂点シェーダ
+	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "PrimitiveVS", "vs_5_0", D3DCOMPILE_DEBUG |
+		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &vertexShaderPlane, nullptr);
+
+	//ピクセルシェーダ
+	result = D3DCompileFromFile((L"VertexShader.hlsl"), nullptr, nullptr, "PrimitivePS", "ps_5_0", D3DCOMPILE_DEBUG |
+		D3DCOMPILE_SKIP_OPTIMIZATION, 0, &pixelShaderPlane, nullptr);
+
+	//シェーダへ送る情報(頂点レイアウト)
+	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		/*{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },*/
+	};
+
+	//パイプラインステート
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
+
+	//ルートシグネチャと頂点レイアウト
+	gpsDesc.pRootSignature = rootSignature;
+	gpsDesc.InputLayout.pInputElementDescs = inputLayouts;
+	gpsDesc.InputLayout.NumElements = _countof(inputLayouts);
+	//シェーダ
+	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShaderPlane);
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShaderPlane);
+	//ラスタライザ
+	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	//レンダーターゲット
+	gpsDesc.NumRenderTargets = 1;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	gpsDesc.DepthStencilState.DepthEnable = false;
+	gpsDesc.DepthStencilState.StencilEnable = false;
+	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+
+	//その他
+	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.NodeMask = 0;
+	gpsDesc.SampleDesc.Count = 1;
+	gpsDesc.SampleDesc.Quality = 0;
+	gpsDesc.SampleMask = 0xffffffff;
+	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+
+	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&piplineState_Plane));
 }
