@@ -82,8 +82,7 @@ void App::Run()
 	{
 		angle += 0.1;
 		
-		//dx12->Update(angle);
-		dx12->testUpdate();
+		dx12->Update(angle);
 		
 		if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
 		{
