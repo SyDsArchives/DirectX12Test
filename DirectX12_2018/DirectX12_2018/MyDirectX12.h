@@ -365,7 +365,6 @@ private:
 //ファーストパス
 	 ID3D12Resource* firstpassBuffer;
 
-
 	 //レンダーターゲット
 	 //関数
 	 void CreateDescriptorHeapRTVforFirstPass();

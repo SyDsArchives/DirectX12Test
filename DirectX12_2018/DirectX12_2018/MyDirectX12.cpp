@@ -240,7 +240,6 @@ void MyDirectX12::testUpdate()
 	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
 	cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
 		
-
 	cmdList->SetGraphicsRootSignature(rootSignature);
 
 	/*cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_FP);
@@ -285,7 +284,7 @@ void MyDirectX12::testUpdate()
 
 	handleRTV = descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart();
 	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+	cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
 
 	//ルートシグネチャのセット
 	cmdList->SetGraphicsRootSignature(rootSignature);
@@ -298,8 +297,8 @@ void MyDirectX12::testUpdate()
 	//シェーダーレジスタ用デスクリプターテーブルの指定
 	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
 
-	/*cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_FP);
-	cmdList->SetGraphicsRootDescriptorTable(2, descriptorHeapSRV_FP->GetGPUDescriptorHandleForHeapStart());*/
+	cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
+	cmdList->SetGraphicsRootDescriptorTable(2, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
 
 	cmdList->SetDescriptorHeaps(1, &toonDescriptorHeap);
 	cmdList->SetGraphicsRootDescriptorTable(3, toonDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
@@ -332,50 +331,48 @@ void MyDirectX12::testUpdate()
 
 	cmdList->Close();
 	ExecuteCommand(1);
-	swapChain->Present(1, 0);
+	//swapChain->Present(1, 0);
 	WaitWithFence();
 	
 	///////////////////////////////
 	//	3パス目 : ペラポリ
 	///////////////////////////////
 	
-	////アロケータリセット
-	//result = cmdAllocator->Reset();
-	////リストリセット
-	//result = cmdList->Reset(cmdAllocator, piplineState_pera);
+	//アロケータリセット
+	result = cmdAllocator->Reset();
+	//リストリセット
+	result = cmdList->Reset(cmdAllocator, piplineState_pera);
 
-	//cmdList->RSSetViewports(1, &viewport);
+	cmdList->RSSetViewports(1, &viewport);
 
-	//cmdList->RSSetScissorRects(1, &scissorRect);
+	cmdList->RSSetScissorRects(1, &scissorRect);
 
-	//handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-	//cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-	//handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-	//auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	//handleRTV.ptr += (bbindex * handleSize);
-	//cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-	//cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
-	//	
-	//cmdList->SetGraphicsRootSignature(rootSignature_pera);
+	handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	handleRTV.ptr += (bbindex * handleSize);
+	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+		
+	cmdList->SetGraphicsRootSignature(rootSignature_pera);
 
-	///*cmdList->SetDescriptorHeaps(1, &peraTextureDescriptorHeap);
-	//cmdList->SetGraphicsRootDescriptorTable(0, peraTextureDescriptorHeap->GetGPUDescriptorHandleForHeapStart());*/
-	//cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
-	//cmdList->SetGraphicsRootDescriptorTable(0, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
+	cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
+	cmdList->SetGraphicsRootDescriptorTable(0, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
 
-	//cmdList->SetPipelineState(piplineState_pera);
+	cmdList->SetPipelineState(piplineState_pera);
 
-	//cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
+	cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
 
-	//cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	//cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
-	//
+	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	
 
-	//cmdList->Close();
-	//ExecuteCommand(1);
-	//swapChain->Present(1, 0);
-	//WaitWithFence();
+	cmdList->Close();
+	ExecuteCommand(1);
+	swapChain->Present(1, 0);
+	WaitWithFence();
 
 
 	///////////////////////////////
@@ -2049,6 +2046,7 @@ void MyDirectX12::CreateDescriptorHeapforPeraTexture()
 void MyDirectX12::CreatePeraPolygonTexture()
 {
 	//CreateMultiPassResource(firstpassBuffer,false);
+	HRESULT result;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
 	desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
