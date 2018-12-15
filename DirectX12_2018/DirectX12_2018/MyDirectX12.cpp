@@ -132,13 +132,14 @@ void MyDirectX12::Update(float angle)
 	///////////////////////////////
 	//モデル
 	{
+
 		//カメラ用定数バッファの更新
 		memcpy(cbuff, &wvp, sizeof(wvp));
 
 		//ボーン初期化
 		std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
 		//PMDにVMDを適応させる
-		MotionUpdate(static_cast<unsigned int>(GetTickCount() - lastTime) / 33.33333f);
+		MotionUpdate(static_cast<float>(GetTickCount() - lastTime) / 33.33333f);
 		//ボーン更新
 		std::copy(boneMatrices.begin(), boneMatrices.end(), bBuff);
 
@@ -174,13 +175,13 @@ void MyDirectX12::Update(float angle)
 		//シェーダーレジスタ用デスクリプターテーブルの指定
 		cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
 
-		//トゥーンバッファセット
-		cmdList->SetDescriptorHeaps(1, &toonDescriptorHeap);
-		cmdList->SetGraphicsRootDescriptorTable(3, toonDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-
 		//ボーンバッファのセット
 		cmdList->SetDescriptorHeaps(1, &boneDescriptorHeap);
 		cmdList->SetGraphicsRootDescriptorTable(2, boneDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+		//トゥーンバッファセット
+		cmdList->SetDescriptorHeaps(1, &toonDescriptorHeap);
+		cmdList->SetGraphicsRootDescriptorTable(3, toonDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
 		//マテリアルバッファセット
 		cmdList->SetDescriptorHeaps(1, &materialDescHeap);
@@ -236,14 +237,14 @@ void MyDirectX12::Update(float angle)
 		cmdList->RSSetViewports(1, &viewport);
 		cmdList->RSSetScissorRects(1, &scissorRect);
 
-		auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-		cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+		//auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
+		//cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 		auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 		auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		handleRTV.ptr += (bbindex * handleSize);
+		handleRTV.ptr += bbindex * handleSize;
 		//cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);//原因お前かあああああああ
-		cmdList->OMSetRenderTargets(1, &handleRTV, true, &handleDSV);
+		cmdList->OMSetRenderTargets(1, &handleRTV, false, nullptr);
 
 		cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
 
@@ -1809,14 +1810,37 @@ void MyDirectX12::CreateDescriptorHeapRTVforSecondPass()
 
 void MyDirectX12::CreateRenderTargetforSecondPass()
 {
-	CreateMultiPassResource(secondpassBuffer, true);
 	HRESULT result;
 	//レンダーターゲット生成
-	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart());
 
-	result = swapChain->GetBuffer(0, IID_PPV_ARGS(&secondpassBuffer));
+	D3D12_HEAP_PROPERTIES hProp = {};
+	hProp.Type = D3D12_HEAP_TYPE_CUSTOM;
+	hProp.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_WRITE_BACK;
+	hProp.MemoryPoolPreference = D3D12_MEMORY_POOL_L0;
+	hProp.CreationNodeMask = 1;
+	hProp.VisibleNodeMask = 1;
 
-	dev->CreateRenderTargetView(secondpassBuffer, nullptr, handle);
+	D3D12_RESOURCE_DESC rDesc = {};
+	rDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	rDesc.Width = WindowWidth;//画像の横幅
+	rDesc.Height = WindowHeight;//画像の縦幅
+	rDesc.DepthOrArraySize = 1;
+	rDesc.MipLevels = 1;
+	rDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	rDesc.SampleDesc.Count = 1;
+	rDesc.SampleDesc.Quality = 0;
+	rDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	rDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+	result = dev->CreateCommittedResource(
+		&hProp,
+		D3D12_HEAP_FLAGS::D3D12_HEAP_FLAG_NONE,
+		&rDesc,
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		nullptr,
+		IID_PPV_ARGS(&secondpassBuffer));
+
+	dev->CreateRenderTargetView(secondpassBuffer, nullptr, descriptorHeapRTV_SP->GetCPUDescriptorHandleForHeapStart());
 }
 
 void MyDirectX12::CreateDescriptorHeapSRVforSecondPass()
@@ -1844,9 +1868,8 @@ void MyDirectX12::CreateShaderResourceforSecondPass()
 	srvDesc.Texture2D.MipLevels = 1;
 
 	auto handle = descriptorHeapSRV_SP->GetCPUDescriptorHandleForHeapStart();
-	auto hsize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	dev->CreateShaderResourceView(secondpassBuffer, &srvDesc, handle);
+	dev->CreateShaderResourceView(secondpassBuffer, &srvDesc, descriptorHeapSRV_SP->GetCPUDescriptorHandleForHeapStart());
 }
 
 ///////////////////////////////////////////
@@ -1890,7 +1913,6 @@ void MyDirectX12::CreateDescriptorHeapforPeraTexture()
 
 void MyDirectX12::CreatePeraPolygonTexture()
 {
-	//CreateMultiPassResource(firstpassBuffer,false);
 	HRESULT result;
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
