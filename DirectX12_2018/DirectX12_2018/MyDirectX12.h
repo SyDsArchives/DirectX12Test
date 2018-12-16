@@ -145,6 +145,7 @@ struct SendMaterialforShader
 struct Cbuffer {
 	DirectX::XMMATRIX world;
 	DirectX::XMMATRIX viewproj;
+	DirectX::XMMATRIX lvp;
 };
 
 class PlaneMesh;
@@ -268,13 +269,13 @@ private:
 	 //関数
 	 void CreateRootParameter();
 	 //変数
-	 D3D12_ROOT_PARAMETER rootParam[5] = {};
+	 D3D12_ROOT_PARAMETER rootParam[6] = {};
 	 D3D12_DESCRIPTOR_RANGE descriptorRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE materialRange[2] = {};
 	 D3D12_DESCRIPTOR_RANGE boneRange[1] = {};
 	 D3D12_DESCRIPTOR_RANGE spRange[1] = {};
 	 D3D12_DESCRIPTOR_RANGE toonRange[1] = {};
-	 D3D12_DESCRIPTOR_RANGE firstpasstextureRange[1] = {};
+	 D3D12_DESCRIPTOR_RANGE shadowMapRange[1] = {};
 
 	//テクスチャバッファ
 	 //関数
@@ -352,12 +353,26 @@ private:
 	 void RecursiveMatrixMultiply(BoneNode& node, DirectX::XMMATRIX& inMat);
 	 void RotateBone(const char* bonename, const DirectX::XMFLOAT4& q, const DirectX::XMFLOAT4& q2 = DirectX::XMFLOAT4(), float t = 0.0f);
 	 void MotionUpdate(int _frameNo);
-	 //変数
+	 
 	 VMD* vmd;
 	 AnimationMap_m animationData;
 	 unsigned int lastTime;
 
+	//シャドウマップ
+	 //関数
+	 void CreateShadowmap();
+	 void CreateShadowmapRootSignature();
+	 void CreateShadowmapPiplineState();
+	 void DrawLightView();
+	 size_t RoundupPowerOf2(size_t size);
 
+	 //変数
+	 ID3D12DescriptorHeap* shadowSRVDescriptorHeap;//シャドウマップSRV用デスクヒープ
+	 ID3D12DescriptorHeap* shadowDSVDescriptorHeap;//シャドウマップDSV用デスクヒープ
+	 ID3D12Resource* shadowBuffer;
+	 ID3D12RootSignature* shadowRootSignature;
+	 ID3D12PipelineState* shadowPiplineState;
+	 
 ////////////////////////////////
 //			マルチパス
 ////////////////////////////////
@@ -423,8 +438,8 @@ private:
 	  //関数
 	  void CreateRootParameterforPeraPolygon();
 	  //変数
-	  D3D12_ROOT_PARAMETER rootParam_pera[1] = {};
-	  D3D12_DESCRIPTOR_RANGE descriptorRange_pera[1] = {};
+	  D3D12_ROOT_PARAMETER rootParam_pera[2] = {};
+	  D3D12_DESCRIPTOR_RANGE descriptorRange_pera[2] = {};
 
 	  //ルートシグネチャ
 	  //関数

@@ -109,9 +109,11 @@ descriptorHeapSRV_FP(nullptr)
 	MyDirectX12::CreateRootSignatureforPeraPolygon();
 	MyDirectX12::CreatePiplineStateforPeraPolygon();
 	
-	
-
 	MyDirectX12::CreatePiplineStateforPlane();
+
+	MyDirectX12::CreateShadowmap();
+	MyDirectX12::CreateShadowmapRootSignature();
+	MyDirectX12::CreateShadowmapPiplineState();
 
 	MyDirectX12::SetViewPort();
 	MyDirectX12::SetScissorRect();
@@ -134,7 +136,7 @@ void MyDirectX12::Update(float angle)
 	{
 
 		//カメラ用定数バッファの更新
-		memcpy(cbuff, &wvp, sizeof(wvp));
+		*cbuff = wvp;
 
 		//ボーン初期化
 		std::fill(boneMatrices.begin(), boneMatrices.end(), DirectX::XMMatrixIdentity());
@@ -183,6 +185,10 @@ void MyDirectX12::Update(float angle)
 		cmdList->SetDescriptorHeaps(1, &toonDescriptorHeap);
 		cmdList->SetGraphicsRootDescriptorTable(3, toonDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
 
+		//シャドウマップ用バッファセット
+		cmdList->SetDescriptorHeaps(1, &shadowSRVDescriptorHeap);
+		cmdList->SetGraphicsRootDescriptorTable(4, shadowSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
 		//マテリアルバッファセット
 		cmdList->SetDescriptorHeaps(1, &materialDescHeap);
 		auto materialHandle = materialDescHeap->GetGPUDescriptorHandleForHeapStart();
@@ -212,6 +218,7 @@ void MyDirectX12::Update(float angle)
 		cmdList->SetPipelineState(piplineState_Plane);
 		cmdList->IASetVertexBuffers(0, 1, &plane->GetVertexBufferView());
 		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+
 		cmdList->DrawInstanced(4, 1, 0, 0);
 	}
 
@@ -237,9 +244,6 @@ void MyDirectX12::Update(float angle)
 		cmdList->RSSetViewports(1, &viewport);
 		cmdList->RSSetScissorRects(1, &scissorRect);
 
-		//auto handleDSV = descriptorHeapDSB->GetCPUDescriptorHandleForHeapStart();
-		//cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
 		auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 		auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		handleRTV.ptr += bbindex * handleSize;
@@ -251,9 +255,73 @@ void MyDirectX12::Update(float angle)
 		cmdList->SetDescriptorHeaps(1, &descriptorHeapSRV_SP);
 		cmdList->SetGraphicsRootDescriptorTable(0, descriptorHeapSRV_SP->GetGPUDescriptorHandleForHeapStart());
 
+		cmdList->SetDescriptorHeaps(1, &shadowSRVDescriptorHeap);
+		cmdList->SetGraphicsRootDescriptorTable(1, shadowSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
 		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 
 		cmdList->DrawInstanced(_countof(vertices), 1, 0, 0);
+	}
+
+	cmdList->Close();
+	ExecuteCommand(1);
+	WaitWithFence();
+
+
+	///////////////////////////////
+	//	シャドウマップ
+	///////////////////////////////
+	//{
+	//	//アロケータリセット
+	//	result = cmdAllocator->Reset();
+	//	//リストリセット
+	//	result = cmdList->Reset(cmdAllocator, shadowPiplineState);
+
+	//	//ルートシグネチャのセット
+	//	cmdList->SetGraphicsRootSignature(shadowRootSignature);
+	//	//パイプラインのセット
+	//	cmdList->SetPipelineState(shadowPiplineState);
+
+	//	//ビューポートのセット
+	//	cmdList->RSSetViewports(1, &viewport);
+	//	//シザーレクトのセット
+	//	cmdList->RSSetScissorRects(1, &scissorRect);
+
+	//	auto handleDSV = shadowDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+	//	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
+	//	auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	//	handleRTV.ptr += bbindex * handleSize;
+
+	//	cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
+
+	//	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
+	//	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+	//	
+	//	//頂点バッファのセット
+	//	cmdList->IASetVertexBuffers(0, 1, &vbView);
+	//	//インデックスバッファのセット
+	//	cmdList->IASetIndexBuffer(&ibView);
+	//	
+	//	cmdList->SetDescriptorHeaps(1, &shadowSRVDescriptorHeap);
+	//	cmdList->SetGraphicsRootDescriptorTable(0, shadowSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//	cmdList->SetDescriptorHeaps(1, &rgstDescHeap);
+	//	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//	//ラインリスト
+	//	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+	//	cmdList->DrawIndexedInstanced(pmdindices.size() * sizeof(unsigned short), 1, 0, 0, 0);
+	//}
+
+	//平面
+	{
+		cmdList->SetGraphicsRootSignature(rootSignature);
+		cmdList->SetPipelineState(piplineState_Plane);
+		cmdList->IASetVertexBuffers(0, 1, &plane->GetVertexBufferView());
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+		cmdList->DrawInstanced(4, 1, 0, 0);
 	}
 
 	cmdList->Close();
@@ -1208,6 +1276,7 @@ void MyDirectX12::CreateConstantBuffer()
 	DirectX::XMFLOAT3 eye(0.f, 15.f, -60.f);
 	DirectX::XMFLOAT3 target(0.f, 10.f, 0.f);
 	DirectX::XMFLOAT3 up(0.f, 1.f, 0.f);
+	DirectX::XMFLOAT3 lightVec(-1, 1, -1);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),
 		XMLoadFloat3(&target),
 		XMLoadFloat3(&up));
@@ -1215,14 +1284,19 @@ void MyDirectX12::CreateConstantBuffer()
 		aspectRatio,
 		1.f,
 		1000.f);
+	auto lightPos = DirectX::XMFLOAT3(lightVec.x * (target.x - eye.x), 
+									  lightVec.y * (target.y - eye.y), 
+									  lightVec.z * (target.z - eye.z));
+
 
 	//定数バッファ用データにセット
 	wvp.world = world;
 	wvp.viewproj = camera * projection;
+	wvp.lvp = wvp.world * DirectX::XMMatrixLookAtLH(XMLoadFloat3(&lightPos), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up)) * (DirectX::XMMatrixOrthographicLH(40, 40, 0.1f, 300.0f));
 	
 	//定数バッファ用データの更新
-	//*cbuff = wvp;
-	memcpy(cbuff, &wvp, sizeof(wvp));
+	*cbuff = wvp;
+	//memcpy(cbuff, &wvp, sizeof(wvp));
 }
 
 void MyDirectX12::CreateMaterialBuffer()
@@ -1496,6 +1570,11 @@ void MyDirectX12::CreateRootParameter()
 	toonRange[0].BaseShaderRegister = 3;//レジスタ番号
 	toonRange[0].NumDescriptors = 1;
 	toonRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	//t[4]
+	shadowMapRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	shadowMapRange[0].BaseShaderRegister = 4;//レジスタ番号
+	shadowMapRange[0].NumDescriptors = 1;
+	shadowMapRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 	
 	//ルートパラメーターの設定
 	//register
@@ -1523,6 +1602,11 @@ void MyDirectX12::CreateRootParameter()
 	rootParam[4].DescriptorTable.NumDescriptorRanges = _countof(toonRange);
 	rootParam[4].DescriptorTable.pDescriptorRanges = toonRange;
 	rootParam[4].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	//shadowMap
+	rootParam[5].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[5].DescriptorTable.NumDescriptorRanges = _countof(shadowMapRange);
+	rootParam[5].DescriptorTable.pDescriptorRanges = shadowMapRange;
+	rootParam[5].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignature()
@@ -1698,6 +1782,222 @@ void MyDirectX12::MotionUpdate(int _frameNo)
 	DirectX::XMMATRIX rootmat = DirectX::XMMatrixIdentity();
 	MyDirectX12::RecursiveMatrixMultiply(boneMap["センター"], rootmat);
 }
+
+void MyDirectX12::CreateShadowmap()
+{
+	HRESULT result;
+
+	//DSV作成
+	{
+		D3D12_RESOURCE_DESC desc = {};
+
+		auto size = RoundupPowerOf2(max(WindowWidth, WindowHeight));
+
+		desc.Format = DXGI_FORMAT_R32_TYPELESS;
+		desc.Width = size;
+		desc.Height = size;
+		desc.DepthOrArraySize = 1;
+		desc.SampleDesc.Count = 1;
+		desc.SampleDesc.Quality = 0;
+		desc.MipLevels = 1;
+		desc.Alignment = 0;
+		desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+		desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+		desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+		//このクリアバリューが重要な意味を持つので今回は作っておく
+		D3D12_CLEAR_VALUE clearValue = {};
+		clearValue.DepthStencil.Depth = 1.0f;
+		clearValue.Format = DXGI_FORMAT_D32_FLOAT;
+
+		result = dev->CreateCommittedResource(
+				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+				D3D12_HEAP_FLAG_NONE,
+				&desc,
+				D3D12_RESOURCE_STATE_DEPTH_WRITE,
+				&clearValue,
+				IID_PPV_ARGS(&shadowBuffer));
+	}
+
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+		desc.NumDescriptors = 1;
+		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;//深度ステンシル
+		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+		desc.NodeMask = 0;
+
+		//深度値用デスクリプターヒープの作成
+		result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&shadowDSVDescriptorHeap));
+	}
+
+	{
+		D3D12_DEPTH_STENCIL_VIEW_DESC desc = {};
+
+		desc.Format = DXGI_FORMAT_D32_FLOAT;
+		desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+		desc.Flags = D3D12_DSV_FLAG_NONE;
+		desc.Texture2D.MipSlice = 0;
+
+		auto handle = shadowDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+		dev->CreateDepthStencilView(shadowBuffer, &desc, handle);
+	}
+
+	//SRV作成
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		desc.NodeMask = 0;
+		desc.NumDescriptors = 1;
+
+		result = dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&shadowSRVDescriptorHeap));
+	}
+
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC desc = {};
+		desc.Format = DXGI_FORMAT_R32_FLOAT;
+		desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		desc.Texture2D.MipLevels = 1;
+		desc.Texture2D.PlaneSlice = 0;
+		desc.Texture2D.MostDetailedMip = 0;
+		
+		auto handle = shadowSRVDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+		//dev->CreateShaderResourceView(shadowBuffer, &desc, handle);
+		dev->CreateShaderResourceView(depthBuffer, &desc, handle);
+	}
+
+}
+
+void MyDirectX12::CreateShadowmapRootSignature()
+{
+	D3D12_DESCRIPTOR_RANGE shadowRange[2] = {};
+
+	//ワールドビュープロジェクション
+	shadowRange[0].BaseShaderRegister = 0;
+	shadowRange[0].NumDescriptors = 1;
+	shadowRange[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	shadowRange[0].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+
+	//深度バッファ
+	shadowRange[1].BaseShaderRegister = 0;
+	shadowRange[1].NumDescriptors = 1;
+	shadowRange[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	shadowRange[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+
+	//ルートパラメータの設定
+	D3D12_ROOT_PARAMETER rootParam[2] = {};
+
+	//ワールドビュープロジェクション
+	rootParam[0].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[0].DescriptorTable.pDescriptorRanges = &shadowRange[0];
+	rootParam[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	//深度バッファ
+	rootParam[1].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam[1].DescriptorTable.pDescriptorRanges = &shadowRange[1];
+	rootParam[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	//サンプラー
+	D3D12_STATIC_SAMPLER_DESC samplerDesc = {};
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samplerDesc.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+	samplerDesc.MinLOD = 0.0f;
+	samplerDesc.MipLODBias = 0.0f;
+	samplerDesc.MaxAnisotropy = 0;
+	samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+	samplerDesc.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	samplerDesc.ShaderRegister = 0;
+	samplerDesc.RegisterSpace = 0;
+
+	D3D12_ROOT_SIGNATURE_DESC rDesc = {};
+	rDesc.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
+	rDesc.NumParameters = _countof(rootParam);
+	rDesc.pParameters = rootParam;
+	rDesc.pStaticSamplers = &samplerDesc;
+	rDesc.NumStaticSamplers = 1;
+
+	ID3DBlob * signature = nullptr;
+	ID3DBlob * error = nullptr;
+
+	auto result = D3D12SerializeRootSignature(&rDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error);
+
+	//ルートシグネチャの生成
+	result = dev->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&shadowRootSignature));
+}
+
+void MyDirectX12::CreateShadowmapPiplineState()
+{
+	ID3DBlob * shadowVS = nullptr;
+	ID3DBlob * shadowPS = nullptr;
+	ID3DBlob * error = nullptr;
+
+	HRESULT result = S_OK;
+
+	result = D3DCompileFromFile((L"LightShader.hlsl"), nullptr, nullptr, "vs", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &shadowVS, &error);
+	result = D3DCompileFromFile((L"LightShader.hlsl"), nullptr, nullptr, "ps", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0, &shadowPS, &error);
+
+	//頂点レイアウト
+	D3D12_INPUT_ELEMENT_DESC inputLayoutDescs[] = {
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
+
+	//パイプラインステートオブジェクト(PSO)を作る
+	D3D12_GRAPHICS_PIPELINE_STATE_DESC gpsDesc = {};
+
+	//ルートシグネチャと頂点レイアウト
+	gpsDesc.pRootSignature = shadowRootSignature;
+	gpsDesc.InputLayout.pInputElementDescs = inputLayoutDescs;
+	gpsDesc.InputLayout.NumElements = _countof(inputLayoutDescs);
+
+	//頂点シェーダ
+	gpsDesc.VS = CD3DX12_SHADER_BYTECODE(shadowVS);
+
+	//ピクセルシェーダ
+	gpsDesc.PS = CD3DX12_SHADER_BYTECODE(shadowPS);
+
+	//ラスタライザ
+	gpsDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+	gpsDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+
+	//レンダーターゲット
+	gpsDesc.NumRenderTargets = 1;
+	gpsDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;//一致させておく事
+
+	//深度ステンシル
+	gpsDesc.DepthStencilState.DepthEnable = true;
+	gpsDesc.DepthStencilState.StencilEnable = false;
+	gpsDesc.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+	gpsDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;	//COMPAR = 比較, LESS = より小さい
+	gpsDesc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+
+	//その他
+	gpsDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+	gpsDesc.NodeMask = 0;
+	gpsDesc.SampleDesc.Count = 1;
+	gpsDesc.SampleDesc.Quality = 0;
+	gpsDesc.SampleMask = 0xffffffff;
+	gpsDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;//三角形
+
+	result = dev->CreateGraphicsPipelineState(&gpsDesc, IID_PPV_ARGS(&shadowPiplineState));
+}
+
+size_t MyDirectX12::RoundupPowerOf2(size_t size) {
+	size_t bit = 0x8000000;
+	for (size_t i = 31; i >= 0; --i) {//1個ずつビットを下げる
+		if (size&bit)break;//立っているならそこで抜ける
+		bit >>= 1;
+	}
+	return bit << 1;//一つ行きすぎたら戻る
+}
+
 
 ///////////////////////////////////////////
 //				ファーストパス
@@ -1953,11 +2253,21 @@ void MyDirectX12::CreateRootParameterforPeraPolygon()
 	descriptorRange_pera[0].NumDescriptors = 1;
 	descriptorRange_pera[0].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
+	descriptorRange_pera[1].RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;//シェーダリソース
+	descriptorRange_pera[1].BaseShaderRegister = 1;//レジスタ番号
+	descriptorRange_pera[1].NumDescriptors = 1;
+	descriptorRange_pera[1].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+
 	//ルートパラメーターの設定
 	rootParam_pera[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
-	rootParam_pera[0].DescriptorTable.NumDescriptorRanges = _countof(descriptorRange_pera);
-	rootParam_pera[0].DescriptorTable.pDescriptorRanges = descriptorRange_pera;//対応するレンジへのポインタ
+	rootParam_pera[0].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam_pera[0].DescriptorTable.pDescriptorRanges = &descriptorRange_pera[0];//対応するレンジへのポインタ
 	rootParam_pera[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	rootParam_pera[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
+	rootParam_pera[1].DescriptorTable.NumDescriptorRanges = 1;
+	rootParam_pera[1].DescriptorTable.pDescriptorRanges = &descriptorRange_pera[1];//対応するレンジへのポインタ
+	rootParam_pera[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 }
 
 void MyDirectX12::CreateRootSignatureforPeraPolygon()
@@ -2056,7 +2366,7 @@ void MyDirectX12::CreatePiplineStateforPlane()
 	D3D12_INPUT_ELEMENT_DESC inputLayouts[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		/*{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },*/
+		{ "TEXCOORD",0,DXGI_FORMAT_R32G32_FLOAT,0,D3D12_APPEND_ALIGNED_ELEMENT,D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,0 },
 	};
 
 	//パイプラインステート

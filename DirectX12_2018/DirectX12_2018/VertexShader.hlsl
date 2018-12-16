@@ -2,12 +2,14 @@ SamplerState smp:register(s0);
 Texture2D<float4> tex:register(t0);
 Texture2D<float4> tex2:register(t1);
 Texture2D<float4> tex3:register(t2);
-Texture2D<float4> clut:register(t2);
+Texture2D<float4> clut:register(t3);
+Texture2D<float4> depth:register(t4);
 
 cbuffer mat:register(b0)
 {
 	float4x4 world;
 	float4x4 viewproj;
+	float4x4 lvp;
 }
 
 cbuffer material:register(b1)
@@ -33,6 +35,7 @@ struct PrimOutput {
 	float4 pos:POSITION;
 	float4 svpos:SV_POSITION;
 	float4 normal:NORMAL;
+	float2 uv:TEXCOORD;
 };
 
 
@@ -65,6 +68,9 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD, min16uin
 //ピクセルシェーダ
 float4 ps(Output output):SV_Target
 {
+	/*float dep = pow(depth.Sample(smp, output.uv),50);
+	return float4(dep, dep, dep, 1);*/
+
 	//環境光
 	float ambientNum = ambient;
 
@@ -100,14 +106,20 @@ float4 ps(Output output):SV_Target
 	//return float4(color, alpha);
 }
 
-PrimOutput PrimitiveVS(float4 pos : POSITION, float3 normal : NORMAL)
+PrimOutput PrimitiveVS(float4 pos:POSITION, float3 normal:NORMAL, float2 uv:TEXCOORD)
 {
 	PrimOutput o;
 	o.svpos = mul(mul(viewproj, world), pos);
+	/*o.uv = (float2(1.0f, -1.0f) + uv * float2(0.5f, -0.5f));*/
+	o.uv = (float2(1.0f, -1.0f) - pos.xy * float2(0.5f, -0.5f));
 	return o;
 }
 
-float4 PrimitivePS(PrimOutput inp) :SV_Target
+float4 PrimitivePS(PrimOutput input) :SV_Target
 {
-	return float4(1,1,1,1);
+	//return depth.Sample(smp, input.uv);
+	float3 color = float3(1, 1, 1);
+	color = color * depth.Sample(smp, input.uv).rgb;
+	return float4(color, 1);
+	//return float4(1,1,1,1);
 }
