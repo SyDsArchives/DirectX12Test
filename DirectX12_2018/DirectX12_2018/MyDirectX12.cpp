@@ -127,7 +127,7 @@ MyDirectX12::~MyDirectX12()
 void MyDirectX12::Update(float angle)
 {
 	HRESULT result = S_OK;
-	float clearColor[4] = { 0.5f, 0.5f, 0.5f, 1.f };
+	float clearColor[4] = { 0.8f, 0.8f, 0.8f, 1.f };
 
 	///////////////////////////////
 	//	1パス目
@@ -994,8 +994,9 @@ void MyDirectX12::CreateToonTextureBuffer()
 		}
 		else 
 		{
-			auto toonTexture = GetToonPathFromIdx(mat.toonIndex);
-			ImageFileData imgData = lif.Load(toonTexture.c_str());
+			//auto toonTexture = GetToonPathFromIdx(mat.toonIndex);
+			//ImageFileData imgData = lif.Load(toonTexture.c_str());
+			ImageFileData imgData = lif.Load("resource/img/toon/toon01.bmp");
 
 			toonBuffer = InitBuffer(imgData.width, imgData.height);
 
@@ -1361,7 +1362,7 @@ void MyDirectX12::CreateMaterialBuffer()
 		float ambient = 0.5f;
 		MaterialColorRGBA ambientData(ambient, ambient, ambient, ambient);
 
-		SendMaterialforShader sendmat(diffuse, specular, ambientData);
+		SendMaterialforShader sendmat(diffuse, specular, ambientData, pmdmaterials[midx].specularity);
 
 		result = mbuff->Map(0, nullptr, (void**)&material[midx]);
 
@@ -1518,8 +1519,8 @@ void MyDirectX12::CreateSamplerState()
 {
 	//サンプラー s[0]
 	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
-	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(U方向)
-	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(V方向)
+	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;//絵が繰り返される(U方向)
+	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;//絵が繰り返される(V方向)
 	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(W方向)
 	samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;//MIPMAP上限なし
 	samplerDesc.MinLOD = 0.0f;//MIPMAP下限なし

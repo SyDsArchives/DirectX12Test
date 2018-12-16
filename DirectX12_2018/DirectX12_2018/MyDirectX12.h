@@ -135,11 +135,12 @@ struct MaterialColorRGBA
 struct SendMaterialforShader
 {
 	SendMaterialforShader() {}
-	SendMaterialforShader(MaterialColorRGBA& dif, MaterialColorRGBA& spe, MaterialColorRGBA& amb):
-		diffuse(dif) ,specular(spe), ambient(amb) {}
+	SendMaterialforShader(MaterialColorRGBA& dif, MaterialColorRGBA& spe, MaterialColorRGBA& amb,float _spec):
+		diffuse(dif) ,specular(spe), ambient(amb), spec(_spec){}
 	MaterialColorRGBA diffuse;
 	MaterialColorRGBA specular;
 	MaterialColorRGBA ambient;
+	float spec;
 };
 
 struct Cbuffer {

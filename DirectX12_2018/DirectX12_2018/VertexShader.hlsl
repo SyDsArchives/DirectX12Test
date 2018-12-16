@@ -7,9 +7,9 @@ Texture2D<float4> depth:register(t4);
 
 cbuffer mat:register(b0)
 {
-	float4x4 world;
-	float4x4 viewproj;
-	float4x4 lvp;
+	matrix world;
+	matrix viewproj;
+	matrix lvp;
 }
 
 cbuffer material:register(b1)
@@ -17,6 +17,7 @@ cbuffer material:register(b1)
 	float4 diffuse;
 	float4 specular;
 	float4 ambient;
+	float spec;
 }
 
 cbuffer bones : register(b2) {
@@ -76,34 +77,32 @@ float4 ps(Output output):SV_Target
 
 	//光源
 	float3 light = float3(-1, 1, -1);
-	light = normalize(light);
-
-	//明るさ
-	float brightness = dot(output.normal.xyz, light) + ambientNum;
-
-	//トゥーン
-	float4 toon = clut.Sample(smp, float2(0, 1.0 - brightness));
-
-	float3 color;
-	float alpha;
-
-	color = diffuse.rgb * tex2.Sample(smp, output.uv).rgb;
-	alpha = diffuse.a;
-
-	return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
+	//light = normalize(light);
 
 	////明るさ
-	//float brightness = dot(output.normal.xyz, light);
+	//float brightness = dot(output.normal.xyz, light) + ambientNum;
 
-	////トゥーン
-	//float4 toon = clut.Sample(smp, float2(0, 1.0 - brightness));
+	//float3 color;
+	//float alpha;
 
-	//float4 matcol = float4(saturate(toon.rgb * diffuse.rgb + ambientNum), diffuse.a);
+	//color = diffuse.rgb * tex2.Sample(smp, output.uv).rgb;
+	//alpha = diffuse.a;
 
-	//float3 color = matcol.rgb * tex2.Sample(smp, output.uv).rgb;
-	//float alpha = matcol.a;
+	//return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
 
-	//return float4(color, alpha);
+	//明るさ
+	float brightness = dot(light,mul(output.normal.xyz, output.pos));
+	brightness = brightness * 0.5f + 0.5f;
+	
+	//トゥーン
+	float4 toon = clut.Sample(smp, float2(0.f, brightness));
+	float3 matcol = float3(saturate(toon.rgb + specular.rgb * spec + ambient.rgb));
+
+	float3 color = diffuse.rgb;
+	color = color * tex2.Sample(smp, output.uv).rgb;
+	color = color * matcol;
+
+	return float4(color.r, color.g, color.b, diffuse.a);
 }
 
 PrimOutput PrimitiveVS(float4 pos:POSITION, float3 normal:NORMAL, float2 uv:TEXCOORD)
