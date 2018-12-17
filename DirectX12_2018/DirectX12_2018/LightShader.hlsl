@@ -20,15 +20,18 @@ Output vs( float4 pos:POSITION, float2 uv:TEXCOORD)
 {
 	Output output;
 
-	output.pos = mul(world, pos);
+	output.pos = mul(lvp, pos);
 	output.svpos = mul(world * viewproj, pos);
+	//output.pos = output.svpos = mul(lvp, pos);
 
 	output.uv = (float2(1.0f, -1.0f) + uv * float2(0.5f, -0.5f));
+	//output.uv = uv;
 
 	return output;
 }
 
 float4 ps(Output input) : SV_Target
 {
-	return float4(tex.Sample(smp, input.uv), tex.Sample(smp, input.uv), tex.Sample(smp, input.uv), 1.0f);
+	/*return float4(tex.Sample(smp, input.uv), tex.Sample(smp, input.uv), tex.Sample(smp, input.uv), 1.0f);*/
+	return float4(1.0f,1.0f,1.0f,1.0f);
 }

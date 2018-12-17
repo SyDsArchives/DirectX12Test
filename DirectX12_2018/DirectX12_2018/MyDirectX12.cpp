@@ -130,6 +130,7 @@ void MyDirectX12::Update(float angle)
 	HRESULT result = S_OK;
 	float clearColor[4] = { 0.8f, 0.8f, 0.8f, 1.f };
 
+
 	///////////////////////////////
 	//	1パス目
 	///////////////////////////////
@@ -228,6 +229,52 @@ void MyDirectX12::Update(float angle)
 	WaitWithFence();
 
 	///////////////////////////////
+	//	シャドウマップ
+	///////////////////////////////
+	{
+		//アロケータリセット
+		result = cmdAllocator->Reset();
+		//リストリセット
+		result = cmdList->Reset(cmdAllocator, shadowPiplineState);
+
+		//ルートシグネチャのセット
+		cmdList->SetGraphicsRootSignature(shadowRootSignature);
+		//パイプラインのセット
+		cmdList->SetPipelineState(shadowPiplineState);
+
+		//ビューポートのセット
+		cmdList->RSSetViewports(1, &viewport);
+		//シザーレクトのセット
+		cmdList->RSSetScissorRects(1, &scissorRect);
+
+		auto handleDSV = shadowDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
+
+		cmdList->OMSetRenderTargets(0, nullptr, false, &handleDSV);
+
+		cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+		//頂点バッファのセット
+		cmdList->IASetVertexBuffers(0, 1, &vbView);
+		//インデックスバッファのセット
+		cmdList->IASetIndexBuffer(&ibView);
+
+		cmdList->SetDescriptorHeaps(1, &shadowSRVDescriptorHeap);
+		cmdList->SetGraphicsRootDescriptorTable(0, shadowSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
+
+		cmdList->SetDescriptorHeaps(1, &rgstDescHeap);
+		cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
+
+		//ラインリスト
+		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		cmdList->DrawIndexedInstanced(pmdindices.size() * sizeof(unsigned short), 1, 0, 0, 0);
+	}
+
+	cmdList->Close();
+	ExecuteCommand(1);
+	WaitWithFence();
+
+	///////////////////////////////
 	//	2パス目 : ペラポリ
 	///////////////////////////////
 	{
@@ -267,66 +314,6 @@ void MyDirectX12::Update(float angle)
 	ExecuteCommand(1);
 	WaitWithFence();
 
-
-	///////////////////////////////
-	//	シャドウマップ
-	///////////////////////////////
-	//{
-	//	//アロケータリセット
-	//	result = cmdAllocator->Reset();
-	//	//リストリセット
-	//	result = cmdList->Reset(cmdAllocator, shadowPiplineState);
-
-	//	//ルートシグネチャのセット
-	//	cmdList->SetGraphicsRootSignature(shadowRootSignature);
-	//	//パイプラインのセット
-	//	cmdList->SetPipelineState(shadowPiplineState);
-
-	//	//ビューポートのセット
-	//	cmdList->RSSetViewports(1, &viewport);
-	//	//シザーレクトのセット
-	//	cmdList->RSSetScissorRects(1, &scissorRect);
-
-	//	auto handleDSV = shadowDSVDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-
-	//	auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
-	//	auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	//	handleRTV.ptr += bbindex * handleSize;
-
-	//	cmdList->OMSetRenderTargets(1, &handleRTV, false, &handleDSV);
-
-	//	cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);
-	//	cmdList->ClearDepthStencilView(handleDSV, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-	//	
-	//	//頂点バッファのセット
-	//	cmdList->IASetVertexBuffers(0, 1, &vbView);
-	//	//インデックスバッファのセット
-	//	cmdList->IASetIndexBuffer(&ibView);
-	//	
-	//	cmdList->SetDescriptorHeaps(1, &shadowSRVDescriptorHeap);
-	//	cmdList->SetGraphicsRootDescriptorTable(0, shadowSRVDescriptorHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//	cmdList->SetDescriptorHeaps(1, &rgstDescHeap);
-	//	cmdList->SetGraphicsRootDescriptorTable(0, rgstDescHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//	//ラインリスト
-	//	cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	//	cmdList->DrawIndexedInstanced(pmdindices.size() * sizeof(unsigned short), 1, 0, 0, 0);
-	//}
-
-	//平面
-	{
-		cmdList->SetGraphicsRootSignature(rootSignature);
-		cmdList->SetPipelineState(piplineState_Plane);
-		cmdList->IASetVertexBuffers(0, 1, &plane->GetVertexBufferView());
-		cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-		cmdList->DrawInstanced(4, 1, 0, 0);
-	}
-
-	cmdList->Close();
-	ExecuteCommand(1);
-	WaitWithFence();
 
 	//30f取得
 	if (GetTickCount() - lastTime > vmd->GetDuration() * 33.33333f)
@@ -1286,14 +1273,14 @@ void MyDirectX12::CreateConstantBuffer()
 		1.f,
 		1000.f);
 
-	/*float mag = ((target.x - eye.x) * (target.x - eye.x)) + ((target.y - eye.y) * (target.y - eye.y)) + ((target.z - eye.z) * (target.z - eye.z));
-	DirectX::XMFLOAT3 lightPos = DirectX::XMFLOAT3((toLight.x * mag) , (toLight.y * mag) , (toLight.z * mag));*/
+	float mag = ((target.x - eye.x) * (target.x - eye.x)) + ((target.y - eye.y) * (target.y - eye.y)) + ((target.z - eye.z) * (target.z - eye.z));
+	DirectX::XMFLOAT3 lightPos = DirectX::XMFLOAT3((toLight.x * mag) , (toLight.y * mag) , (toLight.z * mag));
 
 	//定数バッファ用データにセット
 	wvp.world = world;
 	wvp.viewproj = camera * projection;
 	/*wvp.lvp = wvp.world * DirectX::XMMatrixLookAtLH(XMLoadFloat3(&lightPos), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up)) * (DirectX::XMMatrixOrthographicLH(40, 40, 0.1f, 300.0f));*/
-	DirectX::XMMATRIX lightView = DirectX::XMMatrixLookAtLH(XMLoadFloat3(&toLight), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
+	DirectX::XMMATRIX lightView = DirectX::XMMatrixLookAtLH(XMLoadFloat3(&lightPos), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
 	DirectX::XMMATRIX lightProj = DirectX::XMMatrixOrthographicLH(40, 40, 50, 100);
 	DirectX::XMMATRIX lightViewProj = lightView * lightProj;
 	wvp.lvp = lightViewProj;
@@ -1866,8 +1853,8 @@ void MyDirectX12::CreateShadowmap()
 		desc.Texture2D.MostDetailedMip = 0;
 		
 		auto handle = shadowSRVDescriptorHeap->GetCPUDescriptorHandleForHeapStart();
-		//dev->CreateShaderResourceView(shadowBuffer, &desc, handle);
-		dev->CreateShaderResourceView(depthBuffer, &desc, handle);
+		dev->CreateShaderResourceView(shadowBuffer, &desc, handle);
+		//dev->CreateShaderResourceView(depthBuffer, &desc, handle);
 	}
 
 }

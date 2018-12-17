@@ -24,8 +24,9 @@ Output PeraVertex(float4 pos:POSITION, float2 uv : TEXCOORD)
 float4 PeraPixel(Output input) :SV_Target
 {
 	//シャドウの確認
-	//float dep = pow(depth.Sample(smp, input.uv),50);
-	//return float4(dep, dep, dep, 1);
+	/*float dep = pow(depth.Sample(smp, input.uv),50);
+	return float4(dep, dep, dep, 1);*/
+	//return depth.Sample(smp, input.uv);
 
 	//通常描画
 	return tex.Sample(smp,input.uv);

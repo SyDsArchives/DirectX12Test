@@ -128,6 +128,6 @@ float4 PrimitivePS(PrimOutput input) :SV_Target
 	float3 color = float3(1, 1, 1);
 	float dep = pow(depth.Sample(smp, input.uv).rgb, 50);
 	//return float4(color.r * dep, color.g * dep, color.b * dep, 1);
-	return float4(dep, dep, dep, 1);
+	//return float4(dep, dep, dep, 1);
 	return float4(1,1,1,1);
 }
