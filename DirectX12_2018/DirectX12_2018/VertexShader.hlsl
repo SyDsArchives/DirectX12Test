@@ -33,12 +33,13 @@ struct Output {
 };
 
 struct PrimOutput {
-	float4 pos:POSITION;
+	float4 shadowPos:POSITION;
 	float4 svpos:SV_POSITION;
 	float4 normal:NORMAL;
 	float2 uv:TEXCOORD;
 };
 
+float4 shadow;
 
 //頂点シェーダ
 Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD, min16uint2 boneno:BONENO, min16uint weight:WEIGHT)
@@ -69,48 +70,55 @@ Output vs( float4 pos:POSITION,float4 normal:NORMAL,float2 uv:TEXCOORD, min16uin
 //ピクセルシェーダ
 float4 ps(Output output):SV_Target
 {
-	/*float dep = pow(depth.Sample(smp, output.uv),50);
-	return float4(dep, dep, dep, 1);*/
-
 	//環境光
 	float ambientNum = ambient;
 
 	//光源
 	float3 light = float3(-1, 1, -1);
-	//light = normalize(light);
-
-	////明るさ
-	//float brightness = dot(output.normal.xyz, light) + ambientNum;
-
-	//float3 color;
-	//float alpha;
-
-	//color = diffuse.rgb * tex2.Sample(smp, output.uv).rgb;
-	//alpha = diffuse.a;
-
-	//return float4(color.r * brightness, color.g * brightness, color.b * brightness, alpha);
+	light = normalize(light);
 
 	//明るさ
-	float brightness = dot(light,mul(output.normal.xyz, output.pos));
-	brightness = brightness * 0.5f + 0.5f;
-	
-	//トゥーン
-	float4 toon = clut.Sample(smp, float2(0.f, brightness));
-	float3 matcol = float3(saturate(toon.rgb + specular.rgb * spec + ambient.rgb));
+	float brightness = dot(output.normal.xyz, light) + ambientNum;
 
-	float3 color = diffuse.rgb;
-	color = color * tex2.Sample(smp, output.uv).rgb;
-	color = color * matcol;
+	float3 color;
+	float alpha;
 
-	return float4(color.r, color.g, color.b, diffuse.a);
+	color = diffuse.rgb * tex2.Sample(smp, output.uv).rgb;
+	color = float3(color.r * brightness, color.g * brightness, color.b * brightness);
+	alpha = diffuse.a;
+
+	//通常
+	return float4(color, alpha);
+
+	//depth1
+	//float dep = pow(depth.Sample(smp, output.uv), 50);
+	//return float4(dep, dep, dep, 1);
+
+	//depth2
+	//color = float3(color.r * dep, color.g * dep, color.b * dep);
+	//return float4(color, 1);
+
+	////明るさ
+	//float brightness = dot(light,mul(output.normal.xyz, output.pos));
+	//brightness = brightness * 0.5f + 0.5f;
+	//
+	////トゥーン
+	//float4 toon = clut.Sample(smp, float2(0.f, brightness));
+	//float3 matcol = float3(saturate(toon.rgb + specular.rgb * spec + ambient.rgb));
+
+	//float3 color = diffuse.rgb;
+	//color = color * tex2.Sample(smp, output.uv).rgb;
+	//color = color * matcol;
+
+	//return float4(color.r, color.g, color.b, diffuse.a);
 }
 
 PrimOutput PrimitiveVS(float4 pos:POSITION, float3 normal:NORMAL, float2 uv:TEXCOORD)
 {
 	PrimOutput o;
-	o.svpos = mul(mul(viewproj, world), pos);
-	/*o.uv = (float2(1.0f, -1.0f) + uv * float2(0.5f, -0.5f));*/
-	o.uv = (float2(1.0f, -1.0f) - pos.xy * float2(0.5f, -0.5f));
+	o.shadowPos = mul(lvp, pos);
+	o.svpos = mul(mul(world,viewproj), pos);
+	o.uv = (float2(1.0f, -1.0f) - o.shadowPos.xy * float2(0.5f, -0.5f));
 	return o;
 }
 
@@ -118,7 +126,8 @@ float4 PrimitivePS(PrimOutput input) :SV_Target
 {
 	//return depth.Sample(smp, input.uv);
 	float3 color = float3(1, 1, 1);
-	color = color * depth.Sample(smp, input.uv).rgb;
-	return float4(color, 1);
-	//return float4(1,1,1,1);
+	float dep = pow(depth.Sample(smp, input.uv).rgb, 50);
+	//return float4(color.r * dep, color.g * dep, color.b * dep, 1);
+	return float4(dep, dep, dep, 1);
+	return float4(1,1,1,1);
 }

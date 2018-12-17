@@ -6,6 +6,7 @@
 #include "DirectXTex.h"
 #include "VMD.h"
 #include "PlaneMesh.h"
+#include <cmath>
 
 #pragma comment(lib,"d3d12.lib")
 #pragma comment(lib,"dxgi.lib")
@@ -247,7 +248,6 @@ void MyDirectX12::Update(float angle)
 		auto handleRTV = descriptorHeapRTV->GetCPUDescriptorHandleForHeapStart();
 		auto handleSize = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 		handleRTV.ptr += bbindex * handleSize;
-		//cmdList->ClearRenderTargetView(handleRTV, clearColor, 0, nullptr);//原因お前かあああああああ
 		cmdList->OMSetRenderTargets(1, &handleRTV, false, nullptr);
 
 		cmdList->IASetVertexBuffers(0, 1, &vbView_pera);
@@ -1277,7 +1277,7 @@ void MyDirectX12::CreateConstantBuffer()
 	DirectX::XMFLOAT3 eye(0.f, 15.f, -60.f);
 	DirectX::XMFLOAT3 target(0.f, 10.f, 0.f);
 	DirectX::XMFLOAT3 up(0.f, 1.f, 0.f);
-	DirectX::XMFLOAT3 lightVec(-1, 1, -1);
+	DirectX::XMFLOAT3 toLight(-1, 1, -1);
 	auto camera = DirectX::XMMatrixLookAtLH(DirectX::XMLoadFloat3(&eye),
 		XMLoadFloat3(&target),
 		XMLoadFloat3(&up));
@@ -1285,19 +1285,21 @@ void MyDirectX12::CreateConstantBuffer()
 		aspectRatio,
 		1.f,
 		1000.f);
-	auto lightPos = DirectX::XMFLOAT3(lightVec.x * (target.x - eye.x), 
-									  lightVec.y * (target.y - eye.y), 
-									  lightVec.z * (target.z - eye.z));
 
+	/*float mag = ((target.x - eye.x) * (target.x - eye.x)) + ((target.y - eye.y) * (target.y - eye.y)) + ((target.z - eye.z) * (target.z - eye.z));
+	DirectX::XMFLOAT3 lightPos = DirectX::XMFLOAT3((toLight.x * mag) , (toLight.y * mag) , (toLight.z * mag));*/
 
 	//定数バッファ用データにセット
 	wvp.world = world;
 	wvp.viewproj = camera * projection;
-	wvp.lvp = wvp.world * DirectX::XMMatrixLookAtLH(XMLoadFloat3(&lightPos), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up)) * (DirectX::XMMatrixOrthographicLH(40, 40, 0.1f, 300.0f));
-	
+	/*wvp.lvp = wvp.world * DirectX::XMMatrixLookAtLH(XMLoadFloat3(&lightPos), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up)) * (DirectX::XMMatrixOrthographicLH(40, 40, 0.1f, 300.0f));*/
+	DirectX::XMMATRIX lightView = DirectX::XMMatrixLookAtLH(XMLoadFloat3(&toLight), DirectX::XMLoadFloat3(&target), DirectX::XMLoadFloat3(&up));
+	DirectX::XMMATRIX lightProj = DirectX::XMMatrixOrthographicLH(40, 40, 50, 100);
+	DirectX::XMMATRIX lightViewProj = lightView * lightProj;
+	wvp.lvp = lightViewProj;
+
 	//定数バッファ用データの更新
 	*cbuff = wvp;
-	//memcpy(cbuff, &wvp, sizeof(wvp));
 }
 
 void MyDirectX12::CreateMaterialBuffer()
@@ -1518,7 +1520,7 @@ void MyDirectX12::CreateDescriptorHeapforMaterial()
 void MyDirectX12::CreateSamplerState()
 {
 	//サンプラー s[0]
-	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT;//特別なフィルタを使用しない
+	samplerDesc.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;//特別なフィルタを使用しないD3D12_FILTER_MIN_MAG_LINEAR_MIP_POINT
 	samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;//絵が繰り返される(U方向)
 	samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;//絵が繰り返される(V方向)
 	samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;//絵が繰り返される(W方向)

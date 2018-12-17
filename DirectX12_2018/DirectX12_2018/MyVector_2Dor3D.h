@@ -34,6 +34,10 @@ struct Vector3D {
 		Vector3D<float> vec(x, y, z);
 		return vec;
 	}
+
+	//float Magnitude(Vector3D<T>& inv)const {
+	//	return hypot(inv.x, inv.y, inv.z);
+	//}
 };
 
 template<typename T> 
